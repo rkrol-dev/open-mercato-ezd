@@ -1,0 +1,114 @@
+{
+  "correspondenceSources.nav.sources": "Sources",
+  "correspondenceSources.nav.syncLogs": "Sync Logs",
+  "correspondenceSources.nav.mockUI": "Mock UI",
+  
+  "correspondenceSources.sources.page.title": "Correspondence Sources",
+  "correspondenceSources.sources.page.description": "Manage eDoreczenia and other correspondence integration sources",
+  "correspondenceSources.sources.create.title": "Create Correspondence Source",
+  "correspondenceSources.sources.edit.title": "Edit Correspondence Source",
+  
+  "correspondenceSources.sources.field.name": "Name",
+  "correspondenceSources.sources.field.sourceType": "Source Type",
+  "correspondenceSources.sources.field.isActive": "Active",
+  "correspondenceSources.sources.field.lastSyncDate": "Last Sync Date",
+  "correspondenceSources.sources.field.defaultReceivingOrgUnitId": "Default Receiving Org Unit",
+  "correspondenceSources.sources.field.defaultReceivingOrgUnitSymbol": "Default Org Unit Symbol",
+  
+  "correspondenceSources.sources.section.basicInfo": "Basic Information",
+  "correspondenceSources.sources.section.configuration": "Configuration",
+  "correspondenceSources.sources.section.defaultOrgUnit": "Default Organizational Unit",
+  "correspondenceSources.sources.section.syncInfo": "Synchronization Information",
+  
+  "correspondenceSources.sources.sourceType.edoreczenia-mock": "eDoreczenia (Mock)",
+  "correspondenceSources.sources.sourceType.epuap": "ePUAP",
+  "correspondenceSources.sources.sourceType.email": "Email (IMAP)",
+  
+  "correspondenceSources.sources.config.mockEndpoint": "Mock Endpoint",
+  "correspondenceSources.sources.config.autoFetchEnabled": "Auto Fetch Enabled",
+  "correspondenceSources.sources.config.fetchIntervalMinutes": "Fetch Interval (Minutes)",
+  "correspondenceSources.sources.config.endpointUrl": "Endpoint URL",
+  "correspondenceSources.sources.config.clientId": "Client ID",
+  "correspondenceSources.sources.config.clientSecret": "Client Secret",
+  "correspondenceSources.sources.config.certificatePath": "Certificate Path",
+  "correspondenceSources.sources.config.imapHost": "IMAP Host",
+  "correspondenceSources.sources.config.imapPort": "IMAP Port",
+  "correspondenceSources.sources.config.imapUsername": "IMAP Username",
+  "correspondenceSources.sources.config.imapPassword": "IMAP Password",
+  "correspondenceSources.sources.config.imapSecure": "IMAP Secure (SSL/TLS)",
+  "correspondenceSources.sources.config.folderName": "Folder Name",
+  
+  "correspondenceSources.sources.status.active": "Active",
+  "correspondenceSources.sources.status.inactive": "Inactive",
+  
+  "correspondenceSources.sources.action.create": "Create Source",
+  "correspondenceSources.sources.action.edit": "Edit",
+  "correspondenceSources.sources.action.view": "View",
+  "correspondenceSources.sources.action.delete": "Delete",
+  "correspondenceSources.sources.action.save": "Save Source",
+  "correspondenceSources.sources.action.sync": "Sync Now",
+  "correspondenceSources.sources.action.testConnection": "Test Connection",
+  
+  "correspondenceSources.sources.filter.sourceType": "Source Type",
+  "correspondenceSources.sources.filter.isActive": "Status",
+  "correspondenceSources.sources.filter.search": "Search by name",
+  
+  "correspondenceSources.sources.confirm.delete": "Are you sure you want to delete this source?",
+  "correspondenceSources.sources.confirm.sync": "Are you sure you want to sync this source?",
+  
+  "correspondenceSources.sources.success.created": "Source created successfully",
+  "correspondenceSources.sources.success.updated": "Source updated successfully",
+  "correspondenceSources.sources.success.deleted": "Source deleted successfully",
+  "correspondenceSources.sources.success.synced": "Sync completed successfully",
+  
+  "correspondenceSources.sources.error.create": "Failed to create source",
+  "correspondenceSources.sources.error.update": "Failed to update source",
+  "correspondenceSources.sources.error.delete": "Failed to delete source",
+  "correspondenceSources.sources.error.load": "Failed to load source",
+  "correspondenceSources.sources.error.sync": "Failed to sync source",
+  "correspondenceSources.sources.error.invalidConfig": "Invalid configuration",
+  
+  "correspondenceSources.syncLogs.page.title": "Synchronization Logs",
+  "correspondenceSources.syncLogs.page.description": "View synchronization history and results",
+  
+  "correspondenceSources.syncLogs.field.sourceName": "Source Name",
+  "correspondenceSources.syncLogs.field.startedAt": "Started At",
+  "correspondenceSources.syncLogs.field.completedAt": "Completed At",
+  "correspondenceSources.syncLogs.field.status": "Status",
+  "correspondenceSources.syncLogs.field.itemsFetched": "Items Fetched",
+  "correspondenceSources.syncLogs.field.itemsCreated": "Items Created",
+  "correspondenceSources.syncLogs.field.itemsFailed": "Items Failed",
+  "correspondenceSources.syncLogs.field.errorMessage": "Error Message",
+  
+  "correspondenceSources.syncLogs.status.in_progress": "In Progress",
+  "correspondenceSources.syncLogs.status.completed": "Completed",
+  "correspondenceSources.syncLogs.status.failed": "Failed",
+  
+  "correspondenceSources.syncLogs.filter.sourceId": "Source",
+  "correspondenceSources.syncLogs.filter.status": "Status",
+  "correspondenceSources.syncLogs.filter.dateRange": "Date Range",
+  
+  "correspondenceSources.syncLogs.action.viewDetails": "View Details",
+  
+  "correspondenceSources.syncLogs.error.load": "Failed to load sync logs",
+  
+  "correspondenceSources.sync.modal.title": "Sync Results",
+  "correspondenceSources.sync.modal.itemsFetched": "Items Fetched",
+  "correspondenceSources.sync.modal.itemsCreated": "Items Created",
+  "correspondenceSources.sync.modal.itemsFailed": "Items Failed",
+  "correspondenceSources.sync.modal.status": "Status",
+  "correspondenceSources.sync.modal.close": "Close",
+  
+  "correspondenceSources.mock.page.title": "eDoreczenia Mock UI",
+  "correspondenceSources.mock.page.description": "Test correspondence sync with mock data",
+  "correspondenceSources.mock.action.addItem": "Add Mock Item",
+  "correspondenceSources.mock.action.clearItems": "Clear All Items",
+  "correspondenceSources.mock.field.subject": "Subject",
+  "correspondenceSources.mock.field.senderName": "Sender Name",
+  "correspondenceSources.mock.field.senderEmail": "Sender Email",
+  "correspondenceSources.mock.field.postedDate": "Posted Date",
+  "correspondenceSources.mock.success.added": "Mock item added successfully",
+  "correspondenceSources.mock.success.cleared": "Mock items cleared successfully",
+  "correspondenceSources.mock.error.add": "Failed to add mock item",
+  "correspondenceSources.mock.error.clear": "Failed to clear mock items"
+}
