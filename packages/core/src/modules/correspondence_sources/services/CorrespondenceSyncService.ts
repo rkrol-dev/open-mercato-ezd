@@ -129,6 +129,34 @@ export class CorrespondenceSyncService {
   }
 
   private async fetchMockCorrespondence(): Promise<CorrespondenceItem[]> {
+    // Try to fetch from mock API first
+    try {
+      // Import the consumeMockItems function dynamically
+      const mockApiModule = await import('../api/mock-items/route')
+      const mockItems = mockApiModule.consumeMockItems()
+
+      if (mockItems.length > 0) {
+        const items: CorrespondenceItem[] = mockItems.map((item) => ({
+          subject: item.subject,
+          sender: {
+            displayName: item.senderName,
+            email: item.senderEmail,
+            identifiers: {},
+          },
+          receivedAt: new Date(),
+          deliveryMethod: 'edoreczenia-mock',
+          postedAt: new Date(item.postedDate),
+          senderReference: `MOCK-${item.id}`,
+          documentDate: new Date(item.postedDate),
+        }))
+
+        return items
+      }
+    } catch (error) {
+      // Fallback to generating test data if API is not available or empty
+    }
+
+    // Fallback: generate random test data
     const now = new Date()
     const items: CorrespondenceItem[] = []
     const count = Math.floor(Math.random() * 3) + 1

@@ -7,9 +7,10 @@ import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@open-mercato/ui/primitives/card'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { FeatureGuard } from '@open-mercato/core/modules/feature_toggles/components/FeatureGuard'
-import { Trash2, Plus } from 'lucide-react'
+import { Trash2, Plus, RefreshCw } from 'lucide-react'
 
 type MockItem = {
   id: string
@@ -17,11 +18,13 @@ type MockItem = {
   senderName: string
   senderEmail: string
   postedDate: string
+  createdAt?: string
 }
 
 export default function EDoreczeniaMockPage() {
   const t = useT()
   const [mockItems, setMockItems] = React.useState<MockItem[]>([])
+  const [loading, setLoading] = React.useState(false)
   const [newItem, setNewItem] = React.useState({
     subject: '',
     senderName: '',
@@ -29,39 +32,100 @@ export default function EDoreczeniaMockPage() {
     postedDate: new Date().toISOString().split('T')[0],
   })
 
-  const handleAddItem = () => {
+  // Load items on mount and set up polling
+  React.useEffect(() => {
+    loadItems()
+    
+    // Poll for new items every 5 seconds
+    const interval = setInterval(loadItems, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const loadItems = async () => {
+    try {
+      const response = await apiCall<{ items: MockItem[]; total: number }>('/api/correspondence-sources/mock-items')
+      if (response.ok && response.result) {
+        setMockItems(response.result.items)
+      }
+    } catch (error) {
+      // Silently fail for polling - only show error on user actions
+    }
+  }
+
+  const handleAddItem = async () => {
     if (!newItem.subject || !newItem.senderName || !newItem.senderEmail) {
       flash(t('correspondenceSources.mock.error.add', 'Please fill all fields'), 'error')
       return
     }
 
-    const item: MockItem = {
-      id: Math.random().toString(36).substr(2, 9),
-      ...newItem,
-    }
+    setLoading(true)
+    try {
+      const response = await apiCall('/api/correspondence-sources/mock-items', {
+        method: 'POST',
+        body: JSON.stringify(newItem),
+      })
 
-    setMockItems([...mockItems, item])
-    setNewItem({
-      subject: '',
-      senderName: '',
-      senderEmail: '',
-      postedDate: new Date().toISOString().split('T')[0],
-    })
-    flash(t('correspondenceSources.mock.success.added', 'Mock item added successfully'), 'success')
+      if (response.ok) {
+        flash(t('correspondenceSources.mock.success.added', 'Mock item added successfully'), 'success')
+        setNewItem({
+          subject: '',
+          senderName: '',
+          senderEmail: '',
+          postedDate: new Date().toISOString().split('T')[0],
+        })
+        await loadItems()
+      } else {
+        flash(t('correspondenceSources.mock.error.add', 'Failed to add mock item'), 'error')
+      }
+    } catch (error) {
+      flash(t('correspondenceSources.mock.error.add', 'Failed to add mock item'), 'error')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleClearItems = () => {
+  const handleClearItems = async () => {
     if (mockItems.length === 0) return
     
     const confirmed = window.confirm('Are you sure you want to clear all mock items?')
     if (!confirmed) return
 
-    setMockItems([])
-    flash(t('correspondenceSources.mock.success.cleared', 'Mock items cleared successfully'), 'success')
+    setLoading(true)
+    try {
+      const response = await apiCall('/api/correspondence-sources/mock-items', {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        flash(t('correspondenceSources.mock.success.cleared', 'Mock items cleared successfully'), 'success')
+        setMockItems([])
+      } else {
+        flash(t('correspondenceSources.mock.error.clear', 'Failed to clear mock items'), 'error')
+      }
+    } catch (error) {
+      flash(t('correspondenceSources.mock.error.clear', 'Failed to clear mock items'), 'error')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleDeleteItem = (id: string) => {
-    setMockItems(mockItems.filter(item => item.id !== id))
+  const handleDeleteItem = async (id: string) => {
+    setLoading(true)
+    try {
+      const response = await apiCall(`/api/correspondence-sources/mock-items?id=${id}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        setMockItems(mockItems.filter(item => item.id !== id))
+      } else {
+        flash(t('correspondenceSources.mock.error.delete', 'Failed to delete mock item'), 'error')
+      }
+    } catch (error) {
+      flash(t('correspondenceSources.mock.error.delete', 'Failed to delete mock item'), 'error')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -136,7 +200,7 @@ export default function EDoreczeniaMockPage() {
                       onChange={(e) => setNewItem({ ...newItem, postedDate: e.target.value })}
                     />
                   </div>
-                  <Button onClick={handleAddItem} className="w-full">
+                  <Button onClick={handleAddItem} className="w-full" disabled={loading}>
                     <Plus className="mr-2 h-4 w-4" />
                     {t('correspondenceSources.mock.action.addItem', 'Add Mock Item')}
                   </Button>
@@ -150,15 +214,21 @@ export default function EDoreczeniaMockPage() {
                   <div>
                     <CardTitle>Mock Correspondence Items</CardTitle>
                     <CardDescription>
-                      {mockItems.length} items ready to be fetched during sync
+                      {mockItems.length} items ready to be fetched during sync (auto-refreshes every 5 seconds)
                     </CardDescription>
                   </div>
-                  {mockItems.length > 0 && (
-                    <Button variant="destructive" onClick={handleClearItems}>
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      {t('correspondenceSources.mock.action.clearItems', 'Clear All Items')}
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={loadItems} disabled={loading}>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Refresh
                     </Button>
-                  )}
+                    {mockItems.length > 0 && (
+                      <Button variant="destructive" size="sm" onClick={handleClearItems} disabled={loading}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        {t('correspondenceSources.mock.action.clearItems', 'Clear All')}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
