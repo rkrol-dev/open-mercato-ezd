@@ -79,7 +79,7 @@ export class IncomingShipmentService {
       deletedAt: null,
     })
 
-    if (data.rpwNumber !== undefined && shipment.rpwNumber) {
+    if ('rpwNumber' in data && shipment.rpwNumber) {
       throw new CrudHttpError(400, {
         error: 'Cannot modify RPW number once assigned',
       })

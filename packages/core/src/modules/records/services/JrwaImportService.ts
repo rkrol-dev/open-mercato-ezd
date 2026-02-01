@@ -24,7 +24,7 @@ export interface CsvValidationResult {
 export class JrwaImportService {
   constructor(private readonly em: EntityManager) {}
 
-  private parseCsvToRecords(csvData: string): any[] {
+  private parseCsvToRecords(csvData: string): Record<string, string>[] {
     try {
       return parseCsv(csvData, {
         columns: true,
@@ -71,7 +71,7 @@ export class JrwaImportService {
     const errors: string[] = []
     const warnings: string[] = []
 
-    let records: any[]
+    let records: Record<string, string>[]
     try {
       records = this.parseCsvToRecords(csvData)
     } catch (error) {
