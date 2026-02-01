@@ -92,7 +92,11 @@ const crud = makeCrudRoute({
       commandId: 'correspondence_sources.create',
       schema: correspondenceSourceCreateSchema,
       mapInput: async ({ parsed }) => {
-        validateSourceConfig(parsed.sourceType, parsed.config)
+        try {
+          validateSourceConfig(parsed.sourceType, parsed.config)
+        } catch (error: any) {
+          throw new Error(`Invalid configuration for source type "${parsed.sourceType}": ${error.message}`)
+        }
         return {
           ...parsed,
           isActive: parsed.isActive ?? true,
@@ -108,7 +112,11 @@ const crud = makeCrudRoute({
       schema: correspondenceSourceUpdateSchema,
       mapInput: async ({ parsed }) => {
         if (parsed.sourceType && parsed.config) {
-          validateSourceConfig(parsed.sourceType, parsed.config)
+          try {
+            validateSourceConfig(parsed.sourceType, parsed.config)
+          } catch (error: any) {
+            throw new Error(`Invalid configuration for source type "${parsed.sourceType}": ${error.message}`)
+          }
         }
         return parsed
       },

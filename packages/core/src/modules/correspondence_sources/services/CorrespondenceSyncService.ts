@@ -28,6 +28,11 @@ export class CorrespondenceSyncService {
   private incomingShipmentService: IncomingShipmentService
   private customerMappingService: CustomerMappingService
 
+  private static readonly MOCK_MAX_AGE_DAYS = 7
+  private static readonly MOCK_POST_DELAY_DAYS = 1
+  private static readonly MOCK_DOCUMENT_DELAY_DAYS = 2
+  private static readonly MS_PER_DAY = 24 * 60 * 60 * 1000
+
   constructor(private readonly em: EntityManager) {
     this.incomingShipmentService = new IncomingShipmentService(em)
     this.customerMappingService = new CustomerMappingService(em)
@@ -129,7 +134,10 @@ export class CorrespondenceSyncService {
     const count = Math.floor(Math.random() * 3) + 1
 
     for (let i = 0; i < count; i++) {
-      const itemDate = new Date(now.getTime() - Math.random() * 7 * 24 * 60 * 60 * 1000)
+      const maxAge = CorrespondenceSyncService.MOCK_MAX_AGE_DAYS * CorrespondenceSyncService.MS_PER_DAY
+      const itemDate = new Date(now.getTime() - Math.random() * maxAge)
+      const postDelay = CorrespondenceSyncService.MOCK_POST_DELAY_DAYS * CorrespondenceSyncService.MS_PER_DAY
+      const docDelay = CorrespondenceSyncService.MOCK_DOCUMENT_DELAY_DAYS * CorrespondenceSyncService.MS_PER_DAY
       
       items.push({
         subject: `Test Correspondence #${Date.now()}-${i}`,
@@ -140,9 +148,9 @@ export class CorrespondenceSyncService {
         },
         receivedAt: itemDate,
         deliveryMethod: 'electronic',
-        postedAt: new Date(itemDate.getTime() - 24 * 60 * 60 * 1000),
+        postedAt: new Date(itemDate.getTime() - postDelay),
         senderReference: `REF-${Date.now()}-${i}`,
-        documentDate: new Date(itemDate.getTime() - 48 * 60 * 60 * 1000),
+        documentDate: new Date(itemDate.getTime() - docDelay),
         documentSign: `DOC-${i}`,
       })
     }
@@ -193,6 +201,10 @@ export class CorrespondenceSyncService {
     organizationId: string,
     tenantId: string
   ): Promise<void> {
+    if (!source.defaultReceivingOrgUnitId || !source.defaultReceivingOrgUnitSymbol) {
+      throw new Error('Correspondence source must have default receiving org unit configured')
+    }
+
     const customerMapping = await this.customerMappingService.findOrCreateCustomer(
       organizationId,
       tenantId,
@@ -202,8 +214,8 @@ export class CorrespondenceSyncService {
     const shipmentData = {
       organizationId,
       tenantId,
-      receivingOrgUnitId: source.defaultReceivingOrgUnitId!,
-      receivingOrgUnitSymbol: source.defaultReceivingOrgUnitSymbol!,
+      receivingOrgUnitId: source.defaultReceivingOrgUnitId,
+      receivingOrgUnitSymbol: source.defaultReceivingOrgUnitSymbol,
       subject: item.subject,
       senderId: customerMapping.customerId,
       senderDisplayName: customerMapping.displayName,
