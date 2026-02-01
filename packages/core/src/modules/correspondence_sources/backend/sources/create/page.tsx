@@ -9,7 +9,7 @@ import { apiCallOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { FeatureGuard } from '@open-mercato/core/modules/feature_toggles/components/FeatureGuard'
-import { getConfigFields } from '../../components/SourceConfigForm'
+import { getConfigFields } from '../../../components/SourceConfigForm'
 
 type CorrespondenceSourceFormValues = {
   name: string
@@ -26,7 +26,7 @@ export default function CreateCorrespondenceSourcePage() {
   const [sourceType, setSourceType] = React.useState<'edoreczenia-mock' | 'epuap' | 'email'>('edoreczenia-mock')
 
   const schema = z.object({
-    name: z.string().min(1, t('validation.required', 'Required') || 'Required'),
+    name: z.string().min(1, 'Required'),
     sourceType: z.enum(['edoreczenia-mock', 'epuap', 'email']),
     isActive: z.boolean().optional(),
     config: z.record(z.any()),

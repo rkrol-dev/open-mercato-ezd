@@ -53,12 +53,14 @@ export function SyncButton({
         method: 'POST',
       })
       
-      setResult(response as SyncResult)
-      setShowResult(true)
-      flash(t('correspondenceSources.sources.success.synced', 'Sync completed successfully'), 'success')
-      
-      if (onSyncComplete) {
-        onSyncComplete()
+      if (response && typeof response === 'object' && 'syncLogId' in response) {
+        setResult(response)
+        setShowResult(true)
+        flash(t('correspondenceSources.sources.success.synced', 'Sync completed successfully'), 'success')
+        
+        if (onSyncComplete) {
+          onSyncComplete()
+        }
       }
     } catch (error) {
       flash(t('correspondenceSources.sources.error.sync', 'Failed to sync source'), 'error')

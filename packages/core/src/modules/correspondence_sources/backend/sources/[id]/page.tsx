@@ -10,8 +10,8 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { FeatureGuard } from '@open-mercato/core/modules/feature_toggles/components/FeatureGuard'
-import { getConfigFields } from '../../components/SourceConfigForm'
-import { SyncButton } from '../../components/SyncButton'
+import { getConfigFields } from '../../../components/SourceConfigForm'
+import { SyncButton } from '../../../components/SyncButton'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 
 type CorrespondenceSourceFormValues = {
@@ -41,7 +41,7 @@ export default function CorrespondenceSourceDetailPage() {
         const result = await readApiResultOrThrow<CorrespondenceSourceFormValues>(
           `/api/correspondence-sources/sources?id=${id}`,
           undefined,
-          { errorMessage: t('correspondenceSources.sources.error.load', 'Failed to load source') || 'Failed to load source' }
+          { errorMessage: 'Failed to load source' }
         )
         setData(result)
       } catch (error) {
@@ -55,7 +55,7 @@ export default function CorrespondenceSourceDetailPage() {
   }, [id, t, refreshKey])
 
   const schema = z.object({
-    name: z.string().min(1, t('validation.required', 'Required') || 'Required'),
+    name: z.string().min(1, 'Required'),
     sourceType: z.enum(['edoreczenia-mock', 'epuap', 'email']),
     isActive: z.boolean().optional(),
     config: z.record(z.any()),

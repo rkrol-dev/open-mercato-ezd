@@ -14,8 +14,8 @@ import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { FeatureGuard } from '@open-mercato/core/modules/feature_toggles/components/FeatureGuard'
-import { SourceStatusBadge } from '../../components/SourceStatusBadge'
-import { SyncButton } from '../../components/SyncButton'
+import { SourceStatusBadge } from '../../../components/SourceStatusBadge'
+import { SyncButton } from '../../../components/SyncButton'
 
 type CorrespondenceSourceRow = {
   id: string
