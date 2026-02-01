@@ -143,8 +143,7 @@ const crud = makeCrudRoute({
       schema: incomingShipmentUpdateSchema,
       mapInput: async ({ parsed }) => {
         if (parsed.rpwNumber !== undefined || parsed.rpwSequence !== undefined) {
-          delete parsed.rpwNumber
-          delete parsed.rpwSequence
+          throw new Error('Cannot modify RPW number or sequence. These fields are read-only once assigned.')
         }
         return parsed
       },

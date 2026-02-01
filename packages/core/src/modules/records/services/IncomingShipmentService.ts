@@ -66,8 +66,18 @@ export class IncomingShipmentService {
     return shipment
   }
 
-  async update(id: string, data: Partial<RecordsIncomingShipment>): Promise<RecordsIncomingShipment> {
-    const shipment = await this.em.findOneOrFail(RecordsIncomingShipment, { id })
+  async update(
+    id: string,
+    organizationId: string,
+    tenantId: string,
+    data: Partial<RecordsIncomingShipment>
+  ): Promise<RecordsIncomingShipment> {
+    const shipment = await this.em.findOneOrFail(RecordsIncomingShipment, {
+      id,
+      organizationId,
+      tenantId,
+      deletedAt: null,
+    })
 
     if (data.rpwNumber !== undefined && shipment.rpwNumber) {
       throw new CrudHttpError(400, {

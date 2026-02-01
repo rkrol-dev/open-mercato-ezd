@@ -24,6 +24,54 @@ export interface CsvValidationResult {
 export class JrwaImportService {
   constructor(private readonly em: EntityManager) {}
 
+  private parseValidatedCsv(csvData: string): ParsedCsvRow[] {
+    let records: any[]
+    try {
+      records = parseCsv(csvData, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+      })
+    } catch (error) {
+      throw new CrudHttpError(400, {
+        error: `CSV parse error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      })
+    }
+
+    const parsedRows: ParsedCsvRow[] = []
+    records.forEach((row) => {
+      const validated = jrwaImportCsvRowSchema.parse(row)
+      const parsedRow: ParsedCsvRow = {
+        code: validated.code,
+        name: validated.name,
+        description: validated.description,
+        parentCode: validated.parentCode,
+      }
+
+      if (validated.retentionYears) {
+        const years = parseInt(validated.retentionYears, 10)
+        if (!isNaN(years) && years >= 0) {
+          parsedRow.retentionYears = years
+        }
+      }
+
+      if (validated.retentionCategory) {
+        const category = validated.retentionCategory.trim()
+        if (['A', 'B', 'BE', 'Bc'].includes(category)) {
+          parsedRow.retentionCategory = category as 'A' | 'B' | 'BE' | 'Bc'
+        }
+      }
+
+      if (validated.archivalPackageVariant) {
+        parsedRow.archivalPackageVariant = validated.archivalPackageVariant
+      }
+
+      parsedRows.push(parsedRow)
+    })
+
+    return parsedRows
+  }
+
   parseAndValidateCsv(csvData: string): CsvValidationResult {
     const errors: string[] = []
     const warnings: string[] = []
@@ -129,49 +177,7 @@ export class JrwaImportService {
       })
     }
 
-    let records: any[]
-    try {
-      records = parseCsv(csvData, {
-        columns: true,
-        skip_empty_lines: true,
-        trim: true,
-      })
-    } catch (error) {
-      throw new CrudHttpError(400, {
-        error: `CSV parse error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      })
-    }
-
-    const parsedRows: ParsedCsvRow[] = []
-    records.forEach((row) => {
-      const validated = jrwaImportCsvRowSchema.parse(row)
-      const parsedRow: ParsedCsvRow = {
-        code: validated.code,
-        name: validated.name,
-        description: validated.description,
-        parentCode: validated.parentCode,
-      }
-
-      if (validated.retentionYears) {
-        const years = parseInt(validated.retentionYears, 10)
-        if (!isNaN(years) && years >= 0) {
-          parsedRow.retentionYears = years
-        }
-      }
-
-      if (validated.retentionCategory) {
-        const category = validated.retentionCategory.trim()
-        if (['A', 'B', 'BE', 'Bc'].includes(category)) {
-          parsedRow.retentionCategory = category as 'A' | 'B' | 'BE' | 'Bc'
-        }
-      }
-
-      if (validated.archivalPackageVariant) {
-        parsedRow.archivalPackageVariant = validated.archivalPackageVariant
-      }
-
-      parsedRows.push(parsedRow)
-    })
+    const parsedRows = this.parseValidatedCsv(csvData)
 
     return this.em.transactional(async (em) => {
       const codeToIdMap = new Map<string, string>()
