@@ -22,8 +22,15 @@ export async function POST(request: NextRequest, context: RequestContext) {
       )
     }
 
-    const params = context.params || {}
-    const id = typeof params.id === 'string' ? params.id : (await params.id)
+    const params = await context.params
+    const id = params?.id
+
+    if (!id || typeof id !== 'string') {
+      return NextResponse.json(
+        { error: 'Invalid shipment ID' },
+        { status: 400 }
+      )
+    }
 
     const body = await request.json()
     const validated = incomingShipmentRegisterSchema.parse({

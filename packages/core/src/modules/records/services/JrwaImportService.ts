@@ -1,5 +1,6 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { parse as parseCsv } from 'csv-parse/sync'
+import { z } from 'zod'
 import { RecordsJrwaClass } from '../data/entities'
 import { jrwaImportCsvRowSchema } from '../data/validators'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
