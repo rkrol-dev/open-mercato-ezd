@@ -10,16 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@open-mercato/ui/primitives/dialog'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@open-mercato/ui/primitives/alert-dialog'
 import { Loader2 } from 'lucide-react'
 import { apiCallOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
@@ -59,11 +49,11 @@ export function SyncButton({
     setSyncing(true)
     
     try {
-      const response = await apiCallOrThrow(`/api/correspondence-sources/sources/${sourceId}/sync`, {
+      const response = await apiCallOrThrow<SyncResult>(`/api/correspondence-sources/sources/${sourceId}/sync`, {
         method: 'POST',
       })
       
-      setResult(response)
+      setResult(response as SyncResult)
       setShowResult(true)
       flash(t('correspondenceSources.sources.success.synced', 'Sync completed successfully'), 'success')
       
@@ -89,26 +79,26 @@ export function SyncButton({
         {t('correspondenceSources.sources.action.sync', 'Sync Now')}
       </Button>
 
-      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
+      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
               {t('correspondenceSources.sources.confirm.sync', 'Are you sure you want to sync this source?')}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
+            </DialogTitle>
+            <DialogDescription>
               This will fetch new correspondence items from {sourceName}.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowConfirm(false)}>
               {t('common.cancel', 'Cancel')}
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleSync}>
+            </Button>
+            <Button onClick={handleSync}>
               {t('common.continue', 'Continue')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showResult} onOpenChange={setShowResult}>
         <DialogContent>

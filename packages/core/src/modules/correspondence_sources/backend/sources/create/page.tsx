@@ -26,7 +26,7 @@ export default function CreateCorrespondenceSourcePage() {
   const [sourceType, setSourceType] = React.useState<'edoreczenia-mock' | 'epuap' | 'email'>('edoreczenia-mock')
 
   const schema = z.object({
-    name: z.string().min(1, t('validation.required', 'Required')),
+    name: z.string().min(1, t('validation.required', 'Required') || 'Required'),
     sourceType: z.enum(['edoreczenia-mock', 'epuap', 'email']),
     isActive: z.boolean().optional(),
     config: z.record(z.any()),
@@ -41,7 +41,6 @@ export default function CreateCorrespondenceSourcePage() {
       type: 'text',
       required: true,
       layout: 'half',
-      section: t('correspondenceSources.sources.section.basicInfo', 'Basic Information'),
     },
     {
       id: 'sourceType',
@@ -49,29 +48,21 @@ export default function CreateCorrespondenceSourcePage() {
       type: 'select',
       required: true,
       layout: 'half',
-      section: t('correspondenceSources.sources.section.basicInfo', 'Basic Information'),
       options: [
         { value: 'edoreczenia-mock', label: t('correspondenceSources.sources.sourceType.edoreczenia-mock', 'eDoreczenia (Mock)') },
         { value: 'epuap', label: t('correspondenceSources.sources.sourceType.epuap', 'ePUAP') },
         { value: 'email', label: t('correspondenceSources.sources.sourceType.email', 'Email (IMAP)') },
       ],
-      onChange: (value) => {
-        setSourceType(value as 'edoreczenia-mock' | 'epuap' | 'email')
-      },
     },
     {
       id: 'isActive',
       label: t('correspondenceSources.sources.field.isActive', 'Active'),
       type: 'checkbox',
       layout: 'half',
-      section: t('correspondenceSources.sources.section.basicInfo', 'Basic Information'),
     },
   ]
 
-  const configFields = getConfigFields(sourceType, t).map(field => ({
-    ...field,
-    section: t('correspondenceSources.sources.section.configuration', 'Configuration'),
-  }))
+  const configFields = getConfigFields(sourceType, t)
 
   const orgUnitFields: CrudField[] = [
     {
@@ -79,14 +70,12 @@ export default function CreateCorrespondenceSourcePage() {
       label: t('correspondenceSources.sources.field.defaultReceivingOrgUnitId', 'Default Receiving Org Unit'),
       type: 'text',
       layout: 'half',
-      section: t('correspondenceSources.sources.section.defaultOrgUnit', 'Default Organizational Unit'),
     },
     {
       id: 'defaultReceivingOrgUnitSymbol',
       label: t('correspondenceSources.sources.field.defaultReceivingOrgUnitSymbol', 'Default Org Unit Symbol'),
       type: 'text',
       layout: 'half',
-      section: t('correspondenceSources.sources.section.defaultOrgUnit', 'Default Organizational Unit'),
     },
   ]
 

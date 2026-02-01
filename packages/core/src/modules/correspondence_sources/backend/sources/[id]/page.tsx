@@ -41,7 +41,7 @@ export default function CorrespondenceSourceDetailPage() {
         const result = await readApiResultOrThrow<CorrespondenceSourceFormValues>(
           `/api/correspondence-sources/sources?id=${id}`,
           undefined,
-          { errorMessage: t('correspondenceSources.sources.error.load', 'Failed to load source') }
+          { errorMessage: t('correspondenceSources.sources.error.load', 'Failed to load source') || 'Failed to load source' }
         )
         setData(result)
       } catch (error) {
@@ -55,7 +55,7 @@ export default function CorrespondenceSourceDetailPage() {
   }, [id, t, refreshKey])
 
   const schema = z.object({
-    name: z.string().min(1, t('validation.required', 'Required')),
+    name: z.string().min(1, t('validation.required', 'Required') || 'Required'),
     sourceType: z.enum(['edoreczenia-mock', 'epuap', 'email']),
     isActive: z.boolean().optional(),
     config: z.record(z.any()),
@@ -70,7 +70,6 @@ export default function CorrespondenceSourceDetailPage() {
       type: 'text',
       required: true,
       layout: 'half',
-      section: t('correspondenceSources.sources.section.basicInfo', 'Basic Information'),
     },
     {
       id: 'sourceType',
@@ -78,7 +77,6 @@ export default function CorrespondenceSourceDetailPage() {
       type: 'select',
       required: true,
       layout: 'half',
-      section: t('correspondenceSources.sources.section.basicInfo', 'Basic Information'),
       options: [
         { value: 'edoreczenia-mock', label: t('correspondenceSources.sources.sourceType.edoreczenia-mock', 'eDoreczenia (Mock)') },
         { value: 'epuap', label: t('correspondenceSources.sources.sourceType.epuap', 'ePUAP') },
@@ -90,14 +88,10 @@ export default function CorrespondenceSourceDetailPage() {
       label: t('correspondenceSources.sources.field.isActive', 'Active'),
       type: 'checkbox',
       layout: 'half',
-      section: t('correspondenceSources.sources.section.basicInfo', 'Basic Information'),
     },
   ]
 
-  const configFields = data ? getConfigFields(data.sourceType, t).map(field => ({
-    ...field,
-    section: t('correspondenceSources.sources.section.configuration', 'Configuration'),
-  })) : []
+  const configFields = data ? getConfigFields(data.sourceType, t) : []
 
   const orgUnitFields: CrudField[] = [
     {
@@ -105,14 +99,12 @@ export default function CorrespondenceSourceDetailPage() {
       label: t('correspondenceSources.sources.field.defaultReceivingOrgUnitId', 'Default Receiving Org Unit'),
       type: 'text',
       layout: 'half',
-      section: t('correspondenceSources.sources.section.defaultOrgUnit', 'Default Organizational Unit'),
     },
     {
       id: 'defaultReceivingOrgUnitSymbol',
       label: t('correspondenceSources.sources.field.defaultReceivingOrgUnitSymbol', 'Default Org Unit Symbol'),
       type: 'text',
       layout: 'half',
-      section: t('correspondenceSources.sources.section.defaultOrgUnit', 'Default Organizational Unit'),
     },
   ]
 
@@ -170,26 +162,14 @@ export default function CorrespondenceSourceDetailPage() {
     <FeatureGuard id="correspondence_sources">
       <Page>
         <PageBody>
-          <CrudForm<CorrespondenceSourceFormValues>
-            title={t('correspondenceSources.sources.edit.title', 'Edit Correspondence Source')}
-            backHref="/backend/correspondence-sources/sources"
-            fields={fields}
-            initialValues={data}
-            schema={schema}
-            submitLabel={t('correspondenceSources.sources.action.save', 'Save Source')}
-            cancelHref="/backend/correspondence-sources/sources"
-            onSubmit={handleSubmit}
-            headerContent={
-              <div className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <SyncButton 
-                    sourceId={id}
-                    sourceName={data.name}
-                    onSyncComplete={() => setRefreshKey(prev => prev + 1)}
-                  />
-                </div>
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold">
+                  {t('correspondenceSources.sources.edit.title', 'Edit Correspondence Source')}
+                </h1>
                 {data.lastSyncDate && (
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-sm text-muted-foreground mt-2">
                     {t('correspondenceSources.sources.field.lastSyncDate', 'Last Sync Date')}:{' '}
                     <Badge variant="outline">
                       {new Date(data.lastSyncDate).toLocaleString()}
@@ -197,8 +177,23 @@ export default function CorrespondenceSourceDetailPage() {
                   </div>
                 )}
               </div>
-            }
-          />
+              <SyncButton 
+                sourceId={id}
+                sourceName={data.name}
+                onSyncComplete={() => setRefreshKey(prev => prev + 1)}
+              />
+            </div>
+
+            <CrudForm<CorrespondenceSourceFormValues>
+              backHref="/backend/correspondence-sources/sources"
+              fields={fields}
+              initialValues={data}
+              schema={schema}
+              submitLabel={t('correspondenceSources.sources.action.save', 'Save Source')}
+              cancelHref="/backend/correspondence-sources/sources"
+              onSubmit={handleSubmit}
+            />
+          </div>
         </PageBody>
       </Page>
     </FeatureGuard>
