@@ -1,0 +1,311 @@
+---
+title: Model konceptualny
+sidebar_position: 40
+---
+
+Ten dokument opisuje model pojęciowy (nie techniczny) dla MVP.
+
+## Encje (MVP)
+
+1. `incoming_shipment` – Przesyłka wpływająca
+2. `outgoing_shipment` – Przesyłka wychodząca
+3. `jrwa_class` – JRWA (klasa/pozycja)
+5. `case_register` – Spis spraw
+6. `case_template` – Szablon sprawy
+7. `case` – Sprawa (obejmuje również funkcjonalność "Koszulki" - rekordy bez przypisanego znaku sprawy)
+8. `document` – Dokument
+9. `chronological_location` – Skład chronologiczny: lokalizacja
+10. `record_link` – Powiązanie (neutralne)
+11. `case_party` – Strony (Case Parties)
+
+**Uwaga:** Sprawa i Koszulka są tą samą encją. Sprawa = Koszulka z przypisanym znakiem sprawy. Gdy rekord nie ma przypisanego znaku sprawy, funkcjonuje jako kontener roboczy/teczka tematyczna.
+
+Nazwy techniczne są robocze; finalnie będą zależeć od nazwy modułu i istniejących konwencji.
+
+## Relacje (przez ID)
+
+- `incoming_shipment.receivingOrgUnitId` (wymagane)
+  - Każda przesyłka wpływająca jest obsługiwana przez konkretną komórkę organizacyjną („kancelarię”) ze struktury organizacyjnej
+  - Komórka organizacyjna jest elementem `directory.organizations` (bez osobnej encji `records.offices`)
+
+- `outgoing_shipment.sendingOrgUnitId` (wymagane)
+  - Każda przesyłka wychodząca jest obsługiwana przez konkretną komórkę organizacyjną („kancelarię”) ze struktury organizacyjnej
+
+- `document.incomingShipmentId` (opcjonalne)
+- `document.outgoingShipmentId` (opcjonalne)
+  - Dokument może mieć zarówno `incomingShipmentId` jak i `outgoingShipmentId` (dokument wpływający i odpowiedź wychodząca to jeden rekord z dwoma numerami przesyłek)
+- `document.caseId` (opcjonalne)
+  - Dokument może być przypięty do sprawy (niezależnie od tego, czy sprawa ma przypisany znak sprawy).
+- `document.attachmentIds` (tablica, opcjonalne)
+  - Referencje do załączników z modułu `attachments` (core)
+  - Dokument jest konceptualnie załącznikiem z metadanymi – wykorzystuje `attachments` do przechowywania plików
+  - **Nota**: typ/format pliku NIE jest polem dokumentu – pochodzi z `attachments.mime_type`
+  - 1 dokument = 1 przesyłka (dokumenty nie są współdzielone między przesyłkami)
+
+- `case.jrwaClassId` (wymagane)
+- `case.caseRegisterId` (wymagane)
+- `case.caseTemplateId` (opcjonalne)
+  - Sprawa może być utworzona na podstawie szablonu sprawy
+  - Referencja zachowuje kontekst typu sprawy
+- `case.sign` (opcjonalne)
+  - Znak sprawy – gdy jest pusty, rekord funkcjonuje jako "Koszulka" (kontener roboczy)
+
+- `record_link.aType` + `record_link.aId`
+- `record_link.bType` + `record_link.bId`
+  - typ: `case` (dla rekordów z i bez znaku sprawy)
+  - powiązanie jest **symetryczne** (a↔b) i **neutralne** (bez etykiety)
+
+- `case_party.caseId` (wymagane)
+  - Strona jest zawsze powiązana z konkretną sprawą (niezależnie od tego, czy sprawa ma przypisany znak sprawy)
+- `case_party.partyId` (wymagane)
+  - Referencja do podmiotu (zewnętrznego lub wewnętrznego)
+  - Podmiot może być z modułu `customers` lub innego rejestru podmiotów
+
+## Zasady spójności (MVP)
+
+- Dokument może istnieć bez przesyłki.
+- Dokument może być przypięty do sprawy niezależnie od przesyłki (niezależnie od tego, czy sprawa ma przypisany znak sprawy).
+- Przesyłka nie inicjuje sprawy automatycznie.
+
+### Read-only (zamknięcie)
+
+Sprawa może zostać wprowadzona w stan **read-only** (zamknięte).
+
+- Read-only blokuje: edycję pól, dopinanie/odpinanie dokumentów, dodawanie/usuwanie powiązań.
+- Read-only jest odwracalne (reopen), ale wymaga uprawnienia (RBAC) — do ustalenia w module `records`.
+
+### Powiązania (neutralne, symetryczne)
+
+- Dopuszczamy powiązania między dowolnymi rekordami sprawy (niezależnie od tego, czy mają przypisany znak sprawy).
+- Rekomendacja spójności: powiązanie przechowujemy jako jedną parę (A,B) z kanonicznym uporządkowaniem (żeby uniknąć duplikatów A–B i B–A).
+
+## Skład chronologiczny: lokalizacja i historia
+
+Wymaganie: lokalizacja ma historię zmian.
+
+Rekomendowany model konceptualny:
+
+- `chronological_location` opisuje miejsce (np. regał/półka/pojemnik).
+- `chronological_location_assignment` (lub równoważny mechanizm) przechowuje historię przypisań dokumentów do lokalizacji:
+  - `documentId`
+  - `locationId`
+  - `validFrom`
+  - `validTo` (nullable)
+  - `note` (opcjonalne)
+
+To rozdzielenie pozwala:
+
+- mieć słownik lokalizacji,
+- utrzymywać historię bez nadpisywania.
+
+## Kancelaria jako komórka organizacyjna
+
+System obsługuje wielokancelaryjność poprzez **strukturę organizacyjną**.
+
+- „Kancelaria” = komórka organizacyjna w `directory.organizations`.
+- Przypisanie pracowników do komórki organizacyjnej determinuje dostęp do przesyłek.
+- Nie wprowadzamy osobnej encji `records.offices`.
+
+## RPW: numeracja wykorzystująca mechanizmy OpenMercato
+
+**RPW (Rejestr Przesyłek Wpływających)** jest widokiem/numeracją na encji `incoming_shipment`.
+
+### Wykorzystanie istniejących mechanizmów
+
+System RPW wykorzystuje **wzorzec numeracji dokumentów** z OpenMercato (analogiczny do `salesDocumentNumberGenerator`):
+
+- **Sekwencja**: Automatyczna numeracja z wykorzystaniem sekwencji bazodanowych
+- **Zakres unikalności numeru**: Per organizacja + tenant (sekwencja resetowana rocznie)
+- **Format konfigurowalny**: Szablony z tokenami (rok, miesiąc, sekwencja, etc.)
+- **Bezpieczeństwo**: Atomic increment z obsługą concurrency
+
+### Model numeracji RPW
+
+```typescript
+// Zakres numeracji (scope) – zgodny z mechaniką sekwencji z `salesDocumentNumberGenerator`
+// Uwaga: scope roczny jest kodowany w `documentKind`.
+{
+  organizationId: string    // Organizacja
+  tenantId: string          // Tenant (multi-tenant support)
+  documentKind: string      // np. `rpw:${yyyy}` (roczny scope)
+}
+
+// Format numeracji (konfigurowalny)
+{
+  rpwNumberFormat: string   // np. "RPW/{yyyy}/{seq:6}"
+}
+
+// Przykładowe numery (format narzucony):
+// - RPW/{kanc_id}/{seq:5}/{yyyy}
+// - RPW/K01/00001/2026
+```
+
+### Zasady numeracji
+
+1. **Roczny scope**: Sekwencja resetuje się rocznie przez `documentKind = rpw:${yyyy}`
+2. **Chronologiczność**: Numery są przydzielane chronologicznie
+3. **Unikalność**: Numer RPW jest unikalny w zakresie: organizacja + tenant + rok
+5. **Ciągłość**: Sekwencja nie jest resetowana przy usunięciu przesyłek (audit trail)
+
+### Rejestracja chronologiczna
+
+Przesyłka ma pole `hasChronologicalRegistration: boolean` oznaczające, że została zarejestrowana w składzie chronologicznym.
+
+Proces rejestracji wpływu (RPW) jest osobnym krokiem:
+1. Przesyłka powstaje jako `draft` (bez RPW)
+2. Akcja „Zarejestruj wpływ” nadaje numer RPW i ustawia status `registered`
+3. Rejestracja w składzie chronologicznym może być osobnym krokiem (oznaczenie `hasChronologicalRegistration = true`)
+
+## Oznaczenia przesyłki (zamiast statusów)
+
+Minimalny zestaw pól oznaczeń:
+
+- `hasChronologicalRegistration: boolean`
+- `mappingCoverage: 'none' | 'partial' | 'full'`
+
+Szczegóły doprecyzowujemy w słowniku danych.
+
+## Dokument jako załącznik z metadanymi
+
+**Dokument** w systemie EZD jest nośnikiem treści – w praktyce jest to plik (lub zbiór plików) z dodatkowymi metadanymi kancelaryjno-archiwalnymi.
+
+### Model konceptualny
+
+W OpenMercato:
+
+- **Encja `records.documents`** przechowuje metadane dokumentu:
+  - identyfikacja: tytuł, rodzaj, znak
+  - daty: data dokumentu, data wpływu
+  - klasyfikacja: poziom dostępu
+  - powiązania: przesyłka lub sprawa (niezależnie od tego, czy ma przypisany znak sprawy)
+- **Moduł `attachments` (core)** zarządza fizycznymi plikami:
+  - upload/download
+  - przechowywanie
+  - metadane pliku (nazwa, rozmiar, typ MIME)
+
+### Relacja dokument–załączniki
+
+- Dokument może mieć jeden lub więcej załączników (plików).
+- Relacja jest realizowana przez pole `attachmentIds` (lub podobne) w encji `records.documents`.
+- Główny właściciel załączników jest określany przez kontekst dokumentu:
+  - Dokument powiązany z przesyłką → właściciel: przesyłka
+  - Dokument powiązany ze sprawą → właściciel: sprawa (niezależnie od tego, czy ma przypisany znak sprawy)
+  - Dokument samodzielny → właściciel: dokument
+
+### Implikacje dla RBAC
+
+Dostęp do załączników jest kontrolowany poprzez:
+
+1. Uprawnienia do głównego właściciela (przesyłka/sprawa/dokument)
+2. Poziom dostępu dokumentu (`accessLevel`)
+3. Status właściciela (np. `read-only` dla sprawy)
+
+Użytkownik ma dostęp do załączników dokumentu, jeśli:
+
+- Ma uprawnienia do odczytu głównego właściciela
+- Poziom dostępu dokumentu pozwala na odczyt
+- Główny właściciel nie jest w stanie blokującym dostęp
+
+### Cykl życia
+
+- **Tworzenie**: Upload plików przez moduł `attachments`, referencje zapisywane w `records.documents`
+- **Aktualizacja**: Możliwość dodawania/usuwania załączników (jeśli właściciel nie jest `read-only`)
+- **Usuwanie**: Polityka usuwania załączników do zdefiniowania (cascade delete lub orphan handling)
+
+## Strony (Case Parties)
+
+**Strony** reprezentują podmioty zaangażowane w sprawę – mogą to być osoby fizyczne, prawne lub jednostki organizacyjne.
+
+### Model konceptualny
+
+- Każda strona jest powiązana z konkretną sprawą (niezależnie od tego, czy sprawa ma przypisany znak sprawy).
+- Strona ma określoną **rolę** w sprawie (np. strona postępowania, wnioskodawca, uczestnik, obserwator).
+- Strona może być **podmiotem zewnętrznym** (klient, obywatel) lub **wewnętrznym** (dział, komórka organizacyjna).
+
+### Relacje
+
+- `case_party.caseId` → `case.id`
+  - Każda strona jest powiązana z konkretną sprawą
+- `case_party.partyId`
+  - Referencja do podmiotu w zewnętrznym rejestrze (np. moduł `customers`)
+  - Lub `partyDisplayName` dla podmiotów ad-hoc (bez rejestracji w systemie)
+
+### Typy stron
+
+Minimalny zestaw ról stron (MVP):
+
+- **Wnioskodawca** – podmiot inicjujący sprawę
+- **Uczestnik** – podmiot uczestniczący w sprawie
+- **Obserwator** – podmiot informowany o przebiegu sprawy
+- **Strona postępowania** – podmiot będący stroną w postępowaniu administracyjnym
+
+### Zasady spójności
+
+- Jedna sprawa może mieć wiele stron (relacja 1:N)
+- Strona może występować w różnych rolach w tej samej sprawie (np. wnioskodawca i uczestnik)
+- Jeśli sprawa jest `read-only`, nie można dodawać/usuwać/modyfikować stron
+- Historia stron jest zachowana (audit log)
+
+## Szablony spraw (Case Templates)
+
+**Szablon sprawy** to mechanizm standaryzacji i konfiguracji różnych typów spraw w systemie.
+
+### Model konceptualny
+
+Szablon sprawy (`records.case_templates`) definiuje strukturę i reguły dla konkretnego typu sprawy:
+
+- **Identyfikacja**:
+  - `code` – unikalny kod szablonu (np. "WNIOSEK_DOTACJA", "SKARGA")
+  - `name` – nazwa wyświetlana
+  - `description` – opis przeznaczenia szablonu
+  
+- **Struktura danych**:
+  - `customFieldsDefinition` – definicja pól dodatkowych (JSON Schema lub podobny format)
+  - `requiredFields` – lista pól wymaganych przy tworzeniu sprawy
+  - `defaultValues` – domyślne wartości dla pól sprawy
+  
+- **Klasyfikacja**:
+  - `defaultJrwaClassId` – sugerowana klasa JRWA dla spraw tego typu
+  - `allowedJrwaClassIds` – ograniczenie dozwolonych klas JRWA (opcjonalne)
+  
+- **Konfiguracja stron**:
+  - `partyRoles` – definicja ról dla stron sprawy (np. wnioskodawca, uczestnik)
+  - `requiredPartyRoles` – role wymagane przy tworzeniu sprawy
+  
+- **Ustawienia UI**:
+  - `fieldOrder` – kolejność wyświetlania pól w formularzu
+  - `fieldGroups` – grupowanie pól w sekcje
+  - `fieldVisibility` – zasady widoczności pól (warunkowe pokazywanie/ukrywanie)
+
+### Relacje z innymi encjami
+
+- `case_template.defaultJrwaClassId` → `jrwa_class.id`
+  - Szablon może sugerować domyślną klasę JRWA
+  
+- `case.caseTemplateId` → `case_template.id`
+  - Sprawa utworzona na podstawie szablonu zachowuje referencję
+  - Pozwala na kontekst typu sprawy i ułatwia raportowanie
+
+### Korzyści z szablonów
+
+1. **Elastyczność bez zmian w kodzie**: Różne typy spraw mogą mieć różne struktury
+2. **Standaryzacja**: Spójność danych dla spraw tego samego typu
+3. **Ułatwienie dla użytkownika**: Predefiniowane pola przyspieszają pracę
+4. **Raportowanie**: Grupowanie i analiza według typu sprawy
+5. **Konfigurowalność**: Administratorzy tworzą nowe typy bez developerów
+
+### Zastąpienie koncepcji "dziedziny"
+
+Szablony spraw zastępują i rozszerzają wcześniejszą koncepcję "dziedziny" (domain):
+
+- **Dziedzina** była statycznym, zakodowanym podziałem na obszary tematyczne
+- **Szablon sprawy** to dynamiczny, konfigurowalny mechanizm
+- Większa elastyczność: jeden szablon obsługuje wiele przypadków
+- Możliwość przyszłego dziedziczenia między szablonami
+
+### Zasady spójności
+
+- Szablon jest wersjonowany – zmiana nie wpływa na istniejące sprawy
+- Sprawa może być utworzona bez szablonu (przypadki ad-hoc)
+- Szablon definiuje strukturę, ale nie workflow (osobny mechanizm)
+- Szablony mogą być aktywne/nieaktywne (kontrola dostępności w UI)

@@ -1,0 +1,369 @@
+---
+title: Decyzje (EZD → OpenMercato)
+sidebar_position: 90
+---
+
+Ten dokument zbiera decyzje projektowe związane z mapowaniem kancelaryjno‑archiwalnym na OpenMercato.
+
+Format decyzji (ADR‑like):
+
+- Id: `D-XXX`
+- Kontekst
+- Decyzja
+- Konsekwencje
+- Status: proposed/accepted/superseded
+
+## D-001: MVP ograniczone do CRUD
+
+- Status: accepted
+- Kontekst: chcemy szybko zmapować model danych i API.
+- Decyzja: na start budujemy tylko CRUD + walidacje + OpenAPI.
+- Konsekwencje: procesy/workflow będą opisywane, ale wdrażane później.
+
+## D-002: RPW jako numeracja/widok
+
+- Status: accepted
+- Kontekst: RPW jest rejestrem przesyłek wpływających.
+- Decyzja: RPW nie jest osobną encją – to numeracja + widoki na przesyłkach.
+- Konsekwencje: pola RPW lądują na encji przesyłki; raporty/listy budujemy query.
+
+## D-003: Koszulka → Sprawa 1:1
+
+- Status: superseded (by D-009)
+- Kontekst: pierwotnie zakładaliśmy „koszulkę” jako obiekt przejściowy przed sprawą.
+- Decyzja: (nieaktualne) koszulka jest encją i może zostać przekształcona w sprawę 1:1.
+- Konsekwencje: (nieaktualne) pola wiążące typu `folder.caseId` / `case.folderId`.
+
+## D-009: Ujednolicenie Sprawa = Koszulka
+
+- Status: accepted
+- Kontekst:
+- Analiza wymagań wykazała, że "Koszulka" i "Sprawa" są konceptualnie tym samym obiektem.
+- "Sprawa" to "Koszulka" z przypisanym znakiem sprawy.
+- Utrzymywanie dwóch osobnych encji prowadziło do nadmiernej złożoności i niespójności w dokumentacji.
+- Decyzja:
+- Sprawa i Koszulka są tą samą encją (`records.cases`).
+- Pole `sign` (znak sprawy) jest opcjonalne:
+- Gdy `sign` jest wypełniony → rekord funkcjonuje jako pełna "Sprawa"
+- Gdy `sign` jest pusty → rekord funkcjonuje jako "Koszulka" (kontener roboczy/teczka tematyczna)
+- Usuwamy osobną encję `records.folders`.
+- Konsekwencje:
+- Uproszczenie modelu danych (7 encji zamiast 8).
+- Dokumenty powiązane są tylko z `caseId` (nie `folderId`).
+- Powiązania między rekordami (`record_links`) używają tylko typu `case`.
+- Wszystkie referencje do "Koszulki" w dokumentacji są aktualizowane, aby odzwierciedlać ten ujednolicony model.
+- CRUD dla sprawy obsługuje zarówno rekordy z przypisanym znakiem sprawy, jak i bez niego.
+
+## D-007: Powiązania neutralne + read-only (Sprawa)
+
+- Status: accepted (aktualizowane przez D-009)
+- Kontekst:
+	- W źródłach pojawia się potrzeba „wzajemnie powiązanych spraw”.
+	- Sprawy i koszulki służą katalogowaniu informacji i wymagają elastycznego łączenia.
+	- Potrzebujemy możliwości „zamknięcia” obiektu (blokady zmian) oraz późniejszego otwarcia.
+- Decyzja:
+	- Sprawy i koszulki są osobnymi obiektami domenowymi i encjami (MVP).
+	- Powiązania między obiektami są **neutralne** (bez typu/etykiety) i **symetryczne**.
+		- Dopuszczamy: sprawa↔sprawa, koszulka↔koszulka, sprawa↔koszulka.
+	- Wprowadzamy stan **read-only** (zamknięcie) dla spraw i koszulek.
+		- Read-only blokuje: edycję pól, dopinanie/odpinanie dokumentów, dodawanie/usuwanie powiązań.
+		- Read-only jest **odwracalne** (reopen), ale wymaga dedykowanego uprawnienia (RBAC) — nazwa do ustalenia w module `records`.
+	- Dokument może być przypięty do **dokładnie jednego** obiektu: sprawy *albo* koszulki (lub do żadnego).
+- Konsekwencje:
+	- Usuwamy koncepcję „koszulka → sprawa 1:1” i wynikające z niej pola/endpointy.
+	- Dodajemy encję/zasób powiązań (roboczo: `records.record_links`) oraz reguły unikalności par.
+	- W CRUD dla spraw/koszulek musimy walidować blokady read-only.
+
+## D-004: Dokument może istnieć bez przesyłki
+
+- Status: accepted
+- Kontekst: dokument może zostać „przyniesiony”.
+- Decyzja: `document.incomingShipmentId` jest opcjonalne.
+- Konsekwencje: walidacje nie mogą wymagać przesyłki.
+
+## D-005: Skład chronologiczny – lokalizacja jako encja z historią
+
+- Status: accepted
+- Kontekst: lokalizacja ma być śledzona w czasie.
+- Decyzja: modelujemy lokalizacje oraz historię przypisań (bez nadpisywania).
+- Konsekwencje: potrzebny jest dodatkowy zasób „history/assignments”.
+
+## D-006: Wyszukiwanie MVP = tokens dla Spraw i Dokumentów
+
+- Status: accepted
+- Kontekst: chcemy, aby użytkownik mógł szybko znajdować rekordy Cmd+K, ale bez wdrażania fulltext/vector w MVP.
+- Decyzja:
+	- W MVP indeksujemy i wystawiamy w Cmd+K tylko: **Sprawa** (obejmuje rekordy z i bez znaku sprawy) i **Dokument**.
+	- Strategia search na start: **tokens**.
+- Konsekwencje:
+	- CRUD dla tych encji musi odświeżać `query_index`.
+	- Moduł `records` musi dostarczyć presenter (`formatResult`) dla tokens, żeby wyniki były czytelne.
+
+## D-008: Dokument jako załącznik z metadanymi
+
+- Status: accepted
+- Kontekst:
+	- Dokumenty w systemie EZD są nośnikami treści, które mogą mieć różne formy (elektroniczne pliki, skany papierowych dokumentów).
+	- Potrzebujemy spójnego podejścia do przechowywania i zarządzania plikami w systemie.
+	- OpenMercato posiada moduł `attachments` (core) do zarządzania plikami.
+- Decyzja:
+	- **Dokument** (encja `records.documents`) jest konceptualnie **załącznikiem z metadanymi**.
+	- Dokument wykorzystuje moduł `attachments` do przechowywania plików.
+	- Relacja: każdy rekord dokumentu może mieć powiązane załączniki (pliki) poprzez `attachmentId` lub wielokrotne załączniki.
+	- Metadane dokumentu (tytuł, rodzaj, poziom dostępu, daty, powiązania) są przechowywane w encji `records.documents`.
+	- Fizyczne pliki są zarządzane przez moduł `attachments`.
+- Konsekwencje:
+	- Encja `records.documents` zawiera pola metadanych oraz referencje do załączników (`attachmentIds` lub podobne).
+	- RBAC dla dokumentów musi uwzględniać zasady dostępu do załączników.
+	- Główny właściciel załącznika (primary owner) jest określany przez powiązanie dokumentu:
+		- Jeśli dokument ma `incomingShipmentId` → właścicielem jest przesyłka.
+		- Jeśli dokument ma `caseId` → właścicielem jest sprawa (niezależnie od tego, czy ma przypisany znak sprawy).
+		- Jeśli dokument nie ma żadnego powiązania → właścicielem jest sam dokument.
+	- API dokumentów musi obsługiwać upload/download plików przez moduł `attachments`.
+	- Przy usuwaniu dokumentu należy rozważyć politykę usuwania powiązanych załączników (cascade delete lub orphan handling).
+
+
+## D-010: Kancelaria jako komórka organizacyjna (bez encji `records.offices`)
+
+- Status: accepted
+- Kontekst:
+  - System musi obsługiwać wiele kancelarii/sekretariatów w ramach jednej organizacji.
+  - Kancelaria jest elementem struktury organizacyjnej, do której są przypisani użytkownicy.
+- Decyzja:
+  - **Kancelaria** jest reprezentowana jako komórka organizacyjna w `directory.organizations`.
+  - Nie wprowadzamy osobnej encji `records.offices`.
+  - Przesyłka wpływająca przechowuje wskazanie kancelarii przez `receivingOrgUnitId`.
+- Konsekwencje:
+  - RBAC: użytkownik ma dostęp tylko do przesyłek w scope komórek organizacyjnych, do których jest przypisany.
+  - Numeracja RPW/RKW i uprawnienia bazują na strukturze organizacyjnej (bez CRUD dla kancelarii w `records`).
+
+## D-011: RPW wykorzystuje wzorzec numeracji z OpenMercato
+
+- Status: accepted
+- Kontekst:
+  - System OpenMercato posiada sprawdzony mechanizm numeracji dokumentów (`salesDocumentNumberGenerator`).
+  - Mechanizm ten obsługuje: sekwencje bazodanowe, atomic increment, formaty konfigurowalne, concurrency.
+  - RPW wymaga analogicznej funkcjonalności: automatyczna numeracja, chronologiczność, unikalność.
+- Decyzja:
+  - **RPW wykorzystuje wzorzec numeracji analogiczny do `salesDocumentNumberGenerator`**.
+  - Zakres numeracji: `organizationId` + `tenantId` + `documentKind`, gdzie `documentKind = rpw:${yyyy}` (rocznie).
+  - Format numeru jest narzucony: `RPW/{kanc_id}/{seq:5}/{yyyy}`.
+  - Implementacja: tabela `incoming_shipment_sequences` z atomic increment.
+  - Numer RPW jest nadawany wyłącznie w osobnej akcji „Zarejestruj wpływ”.
+- Konsekwencje:
+  - Reuse sprawdzonego wzorca – mniejsze ryzyko błędów, spójność z resztą systemu.
+  - Łatwiejsza implementacja – można wykorzystać kod z `salesDocumentNumberGenerator` jako punkt startowy.
+  - Niezmienność numeru: po rejestracji RPW nie podlega edycji.
+  - Opcjonalnie: endpoint diagnostyczny dla administratorów: podgląd/ustawienie następnego numeru.
+
+## D-012: Strony (Case Parties) jako encja w MVP
+
+- Status: accepted
+- Kontekst:
+  - Sprawy w systemie EZD często wymagają identyfikacji podmiotów zaangażowanych (wnioskodawcy, uczestnicy, strony postępowania).
+  - Podmioty mogą być zarejestrowane w systemie (moduł `customers`) lub ad-hoc (tylko nazwa).
+  - Potrzebna jest elastyczność: jedna sprawa może mieć wiele stron w różnych rolach.
+- Decyzja:
+  - **Strony (Case Parties)** są osobną encją (`records.case_parties`) powiązaną ze sprawą.
+  - Każda strona ma:
+    - `caseId` (wymagane) – sprawa, do której należy
+    - `role` (wymagane) – rola w sprawie (wnioskodawca, uczestnik, obserwator, strona postępowania)
+    - `partyId` (opcjonalne) – referencja do podmiotu w rejestrze (np. `customers`)
+    - `partyDisplayName` (wymagane, jeśli brak `partyId`) – nazwa podmiotu ad-hoc
+    - Dane kontaktowe i adres (opcjonalne)
+  - Strony podlegają read-only sprawy: jeśli sprawa jest zamknięta, strony nie mogą być modyfikowane.
+  - Historia zmian stron jest zachowana (audit log).
+- Konsekwencje:
+  - Encja `records.case_parties` z relacją N:1 do sprawy.
+  - CRUD: `/api/records/case-parties` z walidacją read-only sprawy.
+  - RBAC: dostęp do stron przez uprawnienia do sprawy.
+  - MVP: minimalny zestaw ról (wnioskodawca, uczestnik, obserwator, strona postępowania).
+  - Przyszłość: możliwość "materializacji" strony ad-hoc jako pełnego podmiotu w rejestrze.
+
+## D-013: Szablony spraw zamiast dziedzin
+
+- Status: accepted
+- Kontekst:
+  - System musi obsługiwać różne typy spraw z różnymi strukturami danych i wymaganiami.
+  - Wcześniejsza koncepcja "dziedziny" (domain) była zbyt sztywna – wymagała zmian w kodzie przy dodawaniu nowych typów.
+  - Różne organizacje i jednostki mogą mieć różne potrzeby co do struktury spraw.
+  - Custom fields w OpenMercato umożliwiają dynamiczną konfigurację pól, ale brakuje mechanizmu grupowania i standaryzacji per typ sprawy.
+- Decyzja:
+  - Wprowadzamy **Szablon sprawy** (`records.case_templates`) jako encję w MVP.
+  - Szablon definiuje:
+    - Strukturę pól dodatkowych (custom fields definition)
+    - Wymagane i opcjonalne pola
+    - Domyślne wartości
+    - Sugerowaną klasę JRWA
+    - Role stron sprawy
+    - Konfigurację UI (kolejność, grupowanie, widoczność pól)
+  - Sprawa może być utworzona na podstawie szablonu (`case.caseTemplateId` opcjonalne).
+  - Szablony są wersjonowane – zmiana szablonu nie wpływa na istniejące sprawy.
+  - Szablony zastępują koncepcję "dziedziny" – zamiast statycznego podziału mamy dynamiczny, konfigurowalny mechanizm.
+- Konsekwencje:
+  - Encja `records.case_templates` z polami: `code`, `name`, `description`, `customFieldsDefinition`, `defaultJrwaClassId`, `partyRoles`, `fieldOrder`, `isActive`.
+  - CRUD dla szablonów: `/api/records/case-templates` (tylko administratorzy).
+  - Przy tworzeniu sprawy: opcjonalny parametr `caseTemplateId` – jeśli podany, system aplikuje definicję z szablonu.
+  - UI tworzenia sprawy: wybór szablonu z listy aktywnych szablonów, dynamiczne generowanie formularza na podstawie definicji.
+  - Raportowanie: możliwość filtrowania i grupowania spraw według `caseTemplateId`.
+  - Migracja z "dziedziny": istniejące "dziedziny" mogą być przekształcone w szablony podczas wdrożenia.
+  - Większa elastyczność: administratorzy mogą tworzyć i modyfikować szablony bez angażowania developerów.
+
+## D-014: Model uprawnień view/manage dla modułu records
+
+- Status: accepted
+- Kontekst:
+  - Potrzebny prosty, czytelny model uprawnień dla modułu `records`.
+  - Pytanie: czy granularne CRUD (view/create/edit/delete) czy uproszczony model (view/manage)?
+  - Trade-off: elastyczność vs prostota zarządzania rolami.
+- Decyzja:
+  - Przyjmujemy model **view/manage** dla wszystkich encji w module `records`.
+  - **Przesyłki wpływające**:
+    - `records.incoming_shipments.view` – odczyt przesyłek
+    - `records.incoming_shipments.manage` – zarządzanie (create/edit/delete)
+    - `records.incoming_shipments.register` – rejestracja wpływu (osobno; wymaga dodatkowych uprawnień)
+  - **JRWA**:
+    - `records.jrwa_classes.view` – odczyt klas JRWA (szeroko; większość użytkowników)
+    - `records.jrwa_classes.manage` – administracja (create/edit/delete pojedynczych klas)
+    - `records.jrwa_classes.import` – import CSV (osobno; potencjalnie destrukcyjna operacja masowa)
+  - **Dokumenty**:
+    - `records.documents.view` – odczyt dokumentów
+    - `records.documents.manage` – zarządzanie dokumentami (create/edit/delete)
+- Konsekwencje:
+  - Uproszczenie zarządzania rolami przy zachowaniu możliwości rozdzielenia uprawnień do krytycznych operacji (`register`, `import`).
+  - Dostęp do załączników kontrolowany przez uprawnienia do głównego właściciela + poziom dostępu dokumentu + status właściciela.
+  - RBAC w API: `requireFeatures(['records.incoming_shipments.manage'])` dla create/edit/delete.
+
+## D-015: Relacja dokument→przesyłka oraz ograniczenie współdzielenia dokumentów
+
+- Status: accepted
+- Kontekst:
+  - Pytanie: czy dokumenty mogą być współdzielone między przesyłkami (M:N) czy są dedykowane (1:1)?
+  - Wymóg z Q2: przesyłka musi mieć co najmniej 1 dokument.
+  - Pytanie: jak walidować wymóg "minimum 1 dokument" – w CRUD czy w akcji `register`?
+- Decyzja:
+  - **1 dokument = 1 przesyłka** – dokumenty NIE są współdzielone między przesyłkami.
+  - Relacja: `incoming_shipments.document_ids: uuid[]` wskazuje na dokumenty.
+  - **Walidacja wymogu "minimum 1 dokument"** odbywa się w akcji `POST /incoming-shipments/{id}/register`:
+    - Create/Update (CRUD) dla przesyłki nie blokuje braku `document_ids` w statusie `draft` (umożliwia „wstępny szkic").
+    - Akcja `register` wymusza:
+      - `document_ids` jest niepustą tablicą UUID
+      - Wszystkie wskazane dokumenty istnieją, nie są usunięte (`deleted_at is null`) i są w scope tego samego `tenant_id`/`organization_id`
+    - Jeśli którykolwiek dokument nie istnieje / został usunięty:
+      - rejestracja kończy się błędem walidacji (400) z listą brakujących ID
+      - rekomendacja: blokować „hard delete" dokumentu, jeśli jest referencjonowany przez przesyłkę (soft-delete lub odpiąć przed usunięciem)
+- Konsekwencje:
+  - Uproszczenie modelu relacji (brak junction table dla M:N).
+  - Dokument może mieć zarówno `incoming_shipment_id` jak i `outgoing_shipment_id` (dokument wpływający + odpowiedź wychodząca = jeden rekord).
+  - Możliwość tworzenia "szkicu" przesyłki bez dokumentów, które są dodawane później.
+  - Walidacja w akcji `register` zapewnia spójność przed finalizacją przesyłki.
+
+## D-016: Dokument jako encja metadanych + attachments dla fizycznych plików
+
+- Status: accepted
+- Kontekst:
+  - Pytanie: jak modelować dokumenty – czy mają własne storage czy wykorzystują moduł `attachments`?
+  - Pytanie: czy `content_type` jest polem dokumentu?
+  - Potrzeba spójnego podejścia do przechowywania i zarządzania plikami w systemie.
+- Decyzja:
+  - **Dokument** (`records.documents`) to **encja metadanych kancelaryjnych/archiwalnych**.
+  - Fizyczne pliki przechowywane w module `attachments` (core).
+  - Relacja: dokument ma pole `attachment_ids: uuid[]` wskazujące na załączniki.
+  - **Typ/format pliku NIE jest polem dokumentu** – pochodzi z `attachments.mime_type` (oraz `file_name`, `file_size`, itd.).
+  - Minimalny zestaw pól `records.documents`:
+    - wymagane: `id`, `tenant_id`, `organization_id`, `title`, `kind`, `access_level`
+    - opcjonalne: `received_at`, `document_date`, `document_sign`, `case_id`, `incoming_shipment_id`, `outgoing_shipment_id`, `attachment_ids`
+    - techniczne: `is_active`, `created_at`, `updated_at`, `deleted_at`
+  - Workflow/akceptacje/podpis kwalifikowany: jako **pola/zdarzenia rozszerzające** – nie blokują definicji rdzenia `records.documents`.
+- Konsekwencje:
+  - Reuse modułu `attachments` – brak duplikacji logiki storage/upload/download.
+  - RBAC dla dokumentów musi uwzględniać zasady dostępu do załączników.
+  - Główny właściciel załącznika określany przez powiązanie dokumentu (przesyłka/sprawa/dokument).
+  - API dokumentów obsługuje upload/download plików przez moduł `attachments`.
+  - Polityka usuwania: rozważyć cascade delete lub orphan handling dla załączników.
+
+## D-017: Import CSV JRWA jako batch insert z walidacją i wersjonowaniem
+
+- Status: accepted
+- Kontekst:
+  - Pytanie z Q3-JRWA-001: jak wygląda proces importu CSV dla JRWA?
+  - Wymóg: import musi być bezpieczny (walidacja), spójny (transakcja), wersjonowany.
+- Decyzja:
+  - **Proces importu** realizowany jako **batch insert z walidacją w transakcji**.
+  - Walidacja przed importem:
+    - Sprawdzenie poprawności struktury CSV (kolumny, typy danych)
+    - Unikalność kodów w ramach importowanej wersji
+    - Istnienie `parent_code` dla wszystkich dzieci (brak orphans)
+  - Błędy w CSV (brak parent_code, duplikaty code, cykliczne zależności) **blokują cały import** z raportem błędów.
+  - Import **tworzy nową wersję** (`version++`) – stare rekordy archiwizowane (`is_active=false`).
+  - Możliwość edycji pojedynczych klas w aktualnej wersji (CRUD) – nie wymusza importu całego drzewa.
+  - **Kod JRWA unikalny** w ramach całego drzewa (w scope `tenant_id` + `organization_id` + `version`).
+  - Indeks unique: `(tenant_id, organization_id, version, code)`.
+- Konsekwencje:
+  - Bezpieczeństwo: błędy nie niszczą istniejących danych (transakcja + archiwizacja).
+  - Historia: stare wersje zachowane dla auditowania i migracji spraw/dokumentów.
+  - Elastyczność: możliwość ręcznej edycji klas w aktualnej wersji (hotfix bez reimportu).
+  - Performance: batch insert wydajniejszy niż pojedyncze rekordy.
+  - API: endpoint `POST /api/records/jrwa-classes/import` z multipart/form-data (CSV file).
+
+## D-018: Walidacje i statusy przesyłek wpływających
+
+- Status: accepted
+- Kontekst:
+  - Pytania Q3-VAL-001/002/003: jakie walidacje w akcji `register`, czy można edytować po rejestracji, jakie statusy?
+  - Potrzeba jasnych reguł lifecycle przesyłki.
+- Decyzja:
+  - **Walidacja w akcji `register`** (Q3-VAL-001):
+    - Wymagane pola: `subject`, `sender_name`, `delivery_method`, `received_at`, `receiving_org_unit_symbol`, `document_ids` (niepusta tablica)
+    - Jeśli `receiving_org_unit_symbol` jest NULL/puste → błąd walidacji (format RPW wymaga symbolu kancelarii)
+    - Jeśli brak dokumentów lub są usunięte → błąd 400 z listą brakujących ID
+  - **Edycja po rejestracji** (Q3-VAL-002):
+    - Przesyłki w statusie `registered` **można edytować** (każde pole **oprócz RPW**)
+    - RPW **nie podlega edycji** po rejestracji – immutable (hard constraint, brak pola w schema update)
+    - Wszystkie zmiany logowane do audit log
+  - **Statusy przesyłek** (Q3-VAL-003):
+    - MVP: `draft`, `registered`, `archived`
+    - `draft` – przesyłka w trakcie tworzenia (brak RPW, brak wymogów pól)
+    - `registered` – przesyłka zarejestrowana (ma RPW, wszystkie wymagane pola wypełnione)
+    - `archived` – status końcowy (możliwość archiwizacji zamkniętych przesyłek, read-only)
+- Konsekwencje:
+  - Jasne reguły przejść stanów: `draft` → `register` → `registered` (+ opcjonalnie → `archived`).
+  - RPW immutable zapewnia stabilność numeracji i audit trail.
+  - Możliwość poprawiania błędów w przesyłce po rejestracji (poza RPW).
+  - Audit log rejestruje wszystkie zmiany dla compliance.
+  - Status `archived` jako mechanizm retention/cleanup (do doprecyzowania w przyszłości).
+
+## D-019: Walidacja receiving_org_unit_symbol przed rejestracją
+
+- Status: accepted
+- Kontekst:
+  - Pytanie Q3-RPW-002: co się dzieje, gdy `receiving_org_unit_symbol` jest puste lub NULL?
+  - Format RPW: `RPW/{kanc_id}/{seq:5}/{yyyy}` wymaga `kanc_id` (symbol kancelarii).
+- Decyzja:
+  - **Blokujemy rejestrację wpływu** jeśli `receiving_org_unit_symbol` jest NULL/puste.
+  - Walidacja w akcji `POST /incoming-shipments/{id}/register`: sprawdzenie `receiving_org_unit_symbol IS NOT NULL AND receiving_org_unit_symbol != ''`.
+  - Jeśli walidacja nie przejdzie → błąd 400 z komunikatem "Symbol komórki organizacyjnej jest wymagany do rejestracji wpływu".
+  - **Brak fallback** (np. "XX" lub `org_unit_id`) – wymuszamy jawne podanie symbolu.
+- Konsekwencje:
+  - Stabilność formatu RPW – każdy numer ma poprawny `kanc_id`.
+  - Możliwość wyszukiwania po RPW prefix (np. `RPW/K01/%`).
+  - Wymóg na strukturę organizacyjną: komórki muszą mieć symbol przed użyciem w module `records`.
+  - Walidacja na poziomie create/update przesyłki (nie wymagane w `draft`, ale sugerowane w UI).
+
+## D-020: RPW immutable po rejestracji
+
+- Status: accepted
+- Kontekst:
+  - Pytanie Q3-RPW-003: czy RPW może być edytowane po rejestracji?
+  - Potrzeba stabilności numeracji dla audit trail i zgodności z wymogami prawnymi.
+- Decyzja:
+  - RPW **nie podlega edycji** po rejestracji – **immutable** (hard constraint).
+  - Po przejściu do statusu `registered`, pole `rpw_number` staje się read-only.
+  - Próba edycji `rpw_number` w PUT request → ignorowana (nie zapisywana) lub błąd 400 (zależnie od implementacji).
+  - Hard constraint w kodzie: schema Zod dla update wyklucza pole `rpw_number`.
+  - Walidacja DB (opcjonalna): trigger/constraint blokujący UPDATE na `rpw_number` gdy `status = 'registered'`.
+- Konsekwencje:
+  - Gwarancja stabilności numeracji – raz nadany RPW nie zmienia się.
+  - Audit trail: historia RPW jest jednoznaczna (bez ryzyka nadpisania).
+  - Brak możliwości "poprawy" RPW w przypadku błędu – wymaga anulowania i ponownej rejestracji (jeśli dopuszczalne).
+  - UI: pole RPW jest disabled/read-only dla przesyłek w statusie `registered`/`archived`.

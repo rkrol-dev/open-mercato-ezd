@@ -1,0 +1,181 @@
+---
+title: Pytania otwarte i założenia
+sidebar_position: 90
+---
+
+Miejsce na kwestie wymagające doprecyzowania, interpretacje oraz ryzyka domenowe.
+
+Format:
+- ID: AP-Q-001
+- Pytanie:
+- Kontekst / dlaczego ważne:
+- Proponowane rozstrzygnięcie:
+- Wpływ na moduły:
+- Status: open | decided | blocked
+
+---
+
+## AP-Q-001: Jak głęboko modelować JRWA i kategorie archiwalne na start?
+
+**ID:** AP-Q-001
+
+**Pytanie:** Jak głęboko modelować JRWA i kategorie archiwalne na start?
+
+**Kontekst / dlaczego ważne:**
+JRWA jest kluczowym elementem systemu kancelaryjno-archiwalnego. Zbyt rozbudowany model może opóźnić wdrożenie, zbyt uproszczony - nie zapewni zgodności z przepisami. Decyzja wpływa na architekturę modułu `records` i możliwość późniejszej rozbudowy.
+
+**Proponowane rozstrzygnięcie:**
+**Minimal Viable Product (MVP) - wariant pragmatyczny:**
+- Symbol klasyfikacyjny (unikalny identyfikator, np. "130.1")
+- Hasło klasyfikacyjne (opis przedmiotu sprawy)
+- Kategoria archiwalna (A, B, BE, Bc - wartość ze słownika)
+- Okres przechowywania (w latach lub "nieokreślony")
+- Status (aktywny/archiwalny)
+- Uwagi (pole tekstowe opcjonalne)
+- Wariant pakietu archiwalnego (`archivalPackageVariant`: package_a/package_b)
+
+**Poza MVP (odłożone na kolejne iteracje):**
+- Pełna hierarchia klas (drzewo symboli)
+- Zaawansowane reguły dziedziczenia
+- Historia zmian klas JRWA
+- Mapowanie klas na typy dokumentów i procesy biznesowe
+- Import/eksport pełnych wykazów akt
+
+**Uzasadnienie:** Minimalny zestaw pól pokrywa 80% przypadków użycia i jest zgodny z przepisami (rozporządzenie MKiDN). System może być rozbudowany później bez zmian w kluczowej logice. Automatyczne pobieranie kategorii i okresu z JRWA eliminuje błędy ręcznego wprowadzania.
+
+**Wpływ na moduły:**
+- `records` - implementacja encji JRWA i integracja ze sprawami
+- `catalog` - potencjalne użycie do przechowywania słowników kategorii
+- Bazy danych - tabela `jrwa_class` z minimalnymi polami
+
+**Status:** **decided**
+
+---
+
+## AP-Q-002: Czy „sprawa" ma być obiektem domenowym, czy zlepkiem: workflow + załączniki + custom entity?
+
+**ID:** AP-Q-002
+
+**Pytanie:** Czy „sprawa" ma być obiektem domenowym, czy zlepkiem: workflow + załączniki + custom entity?
+
+**Kontekst / dlaczego ważne:**
+„Sprawa" jest fundamentem systemu elektronicznego zarządzania dokumentacją (EZD). Decyzja o tym, czy będzie dedykowanym obiektem domenowym czy kompozycją innych elementów, wpływa na:
+- Sposób przechowywania metadanych
+- Możliwość prowadzenia akt sprawy
+- Integralność danych i auditowanie
+- Wydajność zapytań i raportowania
+- Łatwość rozbudowy o specyficzne typy spraw
+
+**Proponowane rozstrzygnięcie:**
+**Sprawa jako dedykowany obiekt domenowy** (preferowane rozwiązanie)
+
+**Uzasadnienie:**
+Na podstawie analizy dokumentacji i przepisów (instrukcje kancelaryjne MKiDN, MC):
+1. **Sprawa ma własną tożsamość domenową** - nie jest tylko kontenerem na dokumenty:
+   - Znak sprawy (unikalny identyfikator nadawany zgodnie z instrukcją)
+   - Klasyfikacja JRWA (determinuje kategorię archiwalną)
+   - Status (otwarta/zamknięta) z datami
+   - Metadane niezależne od załączonych dokumentów
+   
+2. **Sprawa = Koszulka (ujednolicenie)** - to ta sama encja, różnica tylko w obecności znaku sprawy (decyzja D-009 w dokumentacji)
+
+3. **Przewidywalna ścieżka rozbudowy:**
+   - Łatwe dodanie typów spraw (sprawa administracyjna, zamówienie publiczne)
+   - Możliwość specjalizacji metadanych
+   - Audytowalność zmian na poziomie sprawy
+
+4. **Relacje domenowe:**
+   - Sprawa ↔ JRWA (1:1) - kluczowa dla archiwizacji
+   - Sprawa ↔ Dokumenty (1:N) - "akta sprawy"
+   - Sprawa ↔ Workflow (1:N) - różne procesy mogą operować na sprawie
+
+**Model hybrydowy (rekomendacja):**
+- **Rdzeń**: Encja `Case` w module `records` z minimalnymi polami (znak, JRWA, status, daty)
+- **Rozszerzenia**: Możliwość dodania custom fields przez inne moduły (np. `procurement` dla zamówień publicznych)
+- **Workflow**: Procesy operują NA sprawie, ale nie są sprawą
+- **Załączniki**: Dokumenty są powiązane ZE sprawą jako osobne encje
+
+**Wpływ na moduły:**
+- `records` - implementacja encji `Case` z podstawowymi operacjami CRUD
+- `workflow` - procesy mogą referencjonować sprawy
+- `storage` - załączniki/dokumenty linkują do sprawy
+- `audit` - śledzenie zmian na poziomie sprawy
+
+**Status:** **decided**
+
+---
+
+## AP-Q-003: Czy modelujemy „postępowanie odwoławcze KIO" jako osobny byt z timeline'em?
+
+**ID:** AP-Q-003
+
+**Pytanie:** Czy modelujemy „postępowanie odwoławcze KIO" jako osobny byt z timeline'em?
+
+**Kontekst / dlaczego ważne:**
+Postępowanie odwoławcze przed Krajową Izbą Odwoławczą (KIO) w ramach zamówień publicznych ma:
+- Ścisłe terminy ustawowe (wynikające z PZP)
+- Wymagany "pakiet dowodowy"
+- Specyficzną oś czasu zdarzeń (odwołanie → odpowiedź → przystąpienia → rozprawa → orzeczenie)
+- Potrzebę śledzenia statusu i terminów
+- Powiązanie z postępowaniem o udzielenie zamówienia (sprawa główna)
+
+Decyzja wpływa na to, czy będzie to:
+- Specjalizacja "sprawy" z dodatkowymi polami
+- Całkowicie osobny obiekt domenowy
+- Moduł workflow z dedykowanymi fazami
+
+**Proponowane rozstrzygnięcie:**
+**TAK - postępowanie odwoławcze KIO jako specjalizowany byt domenowy z timeline'em**
+
+**Model rekomendowany (podejście pragmatyczne):**
+
+1. **Na start (MVP):**
+   - **Bazowa sprawa** w module `records` z odpowiednią klasą JRWA
+   - **Dodatkowe metadane specyficzne dla KIO** jako rozszerzenie encji sprawy:
+     - Numer sprawy KIO
+     - Status postępowania (odwołanie wniesione, odpowiedź złożona, przystąpienia, orzeczenie)
+     - Powiązanie z postępowaniem głównym (foreign key do "sprawy zamówienia")
+   - **Timeline jako osobna encja powiązana:**
+     - Tabela `kio_timeline_event` z polami: data, typ zdarzenia, termin ustawowy, status wykonania
+     - Typy zdarzeń: ODWOLANIE_WNIESIONE, ODPOWIEDZ_ZLOZONA, PRZYSTAPIENIE, ROZPRAWA, ORZECZENIE
+
+2. **Uzasadnienie podejścia hybrydowego:**
+   - **Wykorzystanie istniejącej infrastruktury sprawy** (JRWA, dokumenty, audyt)
+   - **Specjalizacja przez rozszerzenie** - dodatkowa tabela `kio_appeal` z FK do `case`
+   - **Timeline jako agregat zdarzeń** - łatwe filtrowanie, raportowanie, alerty o terminach
+   - **Możliwość późniejszej migracji** do pełnego modułu jeśli zajdzie potrzeba
+
+3. **Struktura implementacji:**
+   ```text
+   Case (records)
+     └─> KioAppeal (kio-pzp extension)
+           ├─> kio_number
+           ├─> appeal_status
+           ├─> main_procurement_id (FK to Case)
+           └─> Timeline []
+                 ├─> event_type
+                 ├─> event_date
+                 ├─> statutory_deadline
+                 └─> completion_status
+   ```
+
+4. **Pakiet dowodowy:**
+   - Wykorzystanie istniejącej funkcjonalności załączników sprawy
+   - Dodatkowe pole `document_purpose` (np. "evidence", "appeal_document", "response")
+   - Możliwość generowania zestawień dokumentów dla KIO
+
+**Alternatywa odłożona na później (jeśli skala wymaga):**
+- Pełny moduł `kio` z własnym workflow engine
+- Dedykowana konsola do zarządzania postępowaniami
+- Integracja z systemami KIO (jeśli API będzie dostępne)
+
+**Wpływ na moduły:**
+- `records` - bazowa encja sprawy
+- Nowy moduł `kio-pzp` lub rozszerzenie w `procurement`:
+  - Encja `KioAppeal` 
+  - Encja `KioTimelineEvent`
+  - API do zarządzania timeline'em i alertami o terminach
+- `workflow` - opcjonalnie: dedykowany process definition dla KIO
+- `notifications` - alerty o zbliżających się terminach ustawowych
+
+**Status:** **decided**

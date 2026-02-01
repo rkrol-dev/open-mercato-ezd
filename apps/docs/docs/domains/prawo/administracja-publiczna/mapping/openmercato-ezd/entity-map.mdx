@@ -1,0 +1,156 @@
+---
+title: Mapowanie encji
+sidebar_position: 50
+---
+
+Ten dokument mapuje obiekty kancelaryjno‑archiwalne na encje i moduły w OpenMercato.
+
+## Hipoteza modułu
+
+Rekomendacja robocza: nowy moduł `records` (obszar „records/office records”).
+
+Uwaga: to tylko hipoteza do walidacji – finalna nazwa zależy od spójności z istniejącymi modułami.
+
+## Tabela mapowania (MVP)
+
+**Nota terminologiczna:** RKW = rejestr przesyłek wychodzących (terminologia projektowa dla spójności ze źródłami).
+
+| Potrzeba (domena) | Typ | Odpowiednik w OM | Status | Notatki |
+|---|---|---|---|---|
+| Kancelaria (Office) | Encja | `records.offices` | Nowe | Jednostka organizacyjna zarządzająca przesyłkami wpływającymi i wychodzącymi. Definiuje zakres numeracji RPW (przesyłki wpływające) i RKW (przesyłki wychodzące) oraz uprawnienia pracowników. System obsługuje wiele Kancelarii w organizacji. |
+| Przesyłka wpływająca | Encja | `records.incoming_shipments` | Nowe | Zwana również "Wpływ". RPW jako numeracja na tej encji (wykorzystuje wzorzec z `salesDocumentNumberGenerator`). Zawartością przesyłki są Dokumenty. Każda przesyłka jest obsługiwana przez konkretną Kancelarię. |
+| RPW | Widok/numeracja | pola na przesyłce + lista + generator | Nowe | Bez osobnej tabeli/encji. Wykorzystuje mechanizm numeracji analogiczny do `salesDocumentNumberGenerator` z zakresem per Kancelaria. |
+| Przesyłka wychodząca | Encja | `records.outgoing_shipments` | Nowe | Zwana również "Wysyłka". RKW jako numeracja na tej encji (wykorzystuje wzorzec z `salesDocumentNumberGenerator`). Zawartością przesyłki są Dokumenty. Każda przesyłka jest obsługiwana przez konkretną Kancelarię. |
+| RKW | Widok/numeracja | pola na przesyłce + lista + generator | Nowe | Bez osobnej tabeli/encji. Wykorzystuje mechanizm numeracji analogiczny do `salesDocumentNumberGenerator` z zakresem per Kancelaria. RKW = rejestr przesyłek wychodzących. |
+| JRWA | Encja | `records.jrwa_classes` | Nowe | Drzewo klas + retencja. Sprawa ma JRWA. |
+| Spis spraw | Encja | `records.case_registers` | Nowe | Zakres numeracji do dopięcia |
+| Szablon sprawy | Encja | `records.case_templates` | Nowe | Definiuje strukturę, pola i reguły dla konkretnego typu sprawy. Umożliwia standaryzację procesu zakładania spraw i dostosowanie systemu do różnych rodzajów postępowań bez modyfikacji kodu. Szablon określa: wymagane/opcjonalne pola custom fields, domyślne wartości, powiązania z JRWA, role stron. |
+| Sprawa | Encja | `records.cases` | Nowe | **Uwaga:** Sprawa i Koszulka są tą samą encją. Sprawa = Koszulka z przypisanym znakiem sprawy. Znak sprawy jako pole opcjonalne; gdy jest pusty, rekord funkcjonuje jako "Koszulka" (kontener roboczy/teczka tematyczna). Sprawa może być utworzona na podstawie szablonu sprawy. |
+| Powiązania (neutralne) | Encja | `records.record_links` | Nowe | Symetryczne linki między rekordami sprawy (niezależnie od tego, czy mają przypisany znak sprawy) |
+| Dokument | Encja | `records.documents` | Nowe | **Załącznik z metadanymi kancelaryjnymi/archiwalnymi**. Powiązania opcjonalne: przesyłka wpływająca (`incomingShipmentId`) i/lub przesyłka wychodząca (`outgoingShipmentId`) + sprawa (`caseId`). Dokument z wpływu i odpowiedź wychodząca to jeden rekord z dwoma numerami przesyłek. **Typ/format pliku NIE jest polem dokumentu** – pochodzi z `attachments.mime_type`. **1 dokument = 1 przesyłka** (dokumenty nie są współdzielone między przesyłkami). Wykorzystuje moduł `attachments` (core) do przechowywania plików. |
+| Skład chronologiczny – lokalizacja | Encja | `records.chronological_locations` | Nowe | Z historią zmian przypisań |
+| Strony (Case Parties) | Encja | `records.case_parties` | Nowe | Podmioty zaangażowane w sprawę (wnioskodawcy, uczestnicy, strony postępowania). Powiązane ze sprawą, referencja do rejestru podmiotów (np. `customers`) lub nazwa ad-hoc. |
+
+## Pokrycie istniejącymi modułami OM (core/shared/search)
+
+Ta tabela pokazuje „klocki platformy” OpenMercato, które wykorzystamy przy implementacji modułu `records`.
+
+MVP wymaga:
+
+- wyszukiwania Cmd+K dla **Sprawy** (obejmuje rekordy z i bez znaku sprawy) i **Dokumentu**,
+- strategii search **tokens** (minimalnie).
+
+| Potrzeba EZD | Moduł/Helper OM | Zakres reuse | Wymóg na MVP? | Linki (docs) |
+|---|---|---|---:|---|
+| Załączniki / odwzorowania dokumentów (pliki) | `attachments` (core) | upload, metadane, powiązania z rekordami | tak | /docs/api/attachments (kod: `packages/core/src/modules/attachments`) |
+| Ślad zmian / historia operacji CRUD | `audit_logs` (core) | logowanie zmian i inspekcja w UI | opcjonalnie | /docs/user-guide/audit-logs (kod: `packages/core/src/modules/audit_logs`) |
+| Konfigurowalne pola (Custom Fields) dla encji `records.*` | `entities` (core) + custom fields | definicje pól + przechowywanie wartości + walidacje | opcjonalnie | /docs/user-guide/custom-fieldsets oraz /docs/api/entities (kod: `packages/core/src/modules/entities`) |
+| Normalizacja i rozdział payloadu custom fields | `splitCustomFieldPayload`, `normalizeCustomFieldValues`, `normalizeCustomFieldResponse` (shared) | spójny format `cf_`/`cf:` w create/update/response | opcjonalnie | kod: `packages/shared/src/lib/crud/custom-fields.ts`, `packages/shared/src/lib/custom-fields/normalize.ts` |
+| Mapowanie custom fields w formularzach CRUD (backend UI) | `collectCustomFieldValues` (ui) | zbieranie `cf_*`/`cf:` z form i transformacja wartości | opcjonalnie | kod: `packages/ui/src/backend/utils/customFieldValues.ts` |
+| Indeksowanie encji pod zapytania/listy | `query_index` (core) | indeks (doc) + odświeżanie po CRUD | tak | kod: `packages/core/src/modules/query_index` |
+| Wyszukiwanie (Cmd+K) dla Sprawy i Dokumentu | `search` (core + package) | strategia `tokens`, presenter dla wyników | tak | /docs/user-guide/search (kod: `packages/search`, `packages/core/src/modules/search`) |
+| Fulltext/vector search (później) | `search` + `vector` | opcjonalne strategie, embeddings | nie | /docs/api/vector |
+| Procesy obiegu (później) | `workflows` (core) | definicje workflow, taski, monitoring | nie | /docs/user-guide/workflows (kod: `packages/core/src/modules/workflows`) |
+
+### Konsekwencje dla implementacji `records` (MVP)
+
+- CRUD dla `records.cases` i `records.documents` powinien od razu emitować side effects do `query_index`, żeby `tokens` search działał.
+- W module `records` trzeba będzie dodać `search.ts` z `formatResult` (dla tokens), aby wyniki Cmd+K nie były surowymi UUID.
+- Custom fields są oznaczone jako „opcjonalnie”, ale jeśli zdecydujemy się na nie dla metadanych (np. pola specyficzne jednostki), to od początku używamy helperów z `packages/shared`/`packages/ui` zamiast ad-hoc parsowania `cf_*`.
+
+## Uwaga o relacjach między modułami
+
+W OpenMercato moduły są niezależne.
+
+- Nie tworzymy relacji ORM między modułami.
+- Powiązania realizujemy przez pola `...Id`.
+
+Jeśli w przyszłości trzeba będzie łączyć np. nadawcę (podmiot) z innym modułem, robimy to przez ID i osobne zapytania.
+
+## Załączniki i dokumenty
+
+**Dokument** w module `records` jest konceptualnie **załącznikiem z metadanymi kancelaryjno-archiwalnymi**.
+
+### Model relacji
+
+- Encja `records.documents` przechowuje metadane dokumentu (tytuł, rodzaj, poziom dostępu, daty, powiązania z innymi encjami).
+- Fizyczne pliki są zarządzane przez moduł `attachments` (core).
+- Każdy dokument może mieć jedno lub więcej powiązanych załączników poprzez pole `attachmentIds` (lub podobne).
+
+### Główny właściciel załącznika (primary owner)
+
+Główny właściciel załącznika jest określany przez powiązanie dokumentu z innymi encjami:
+
+1. **Dokument powiązany z przesyłką** (`incomingShipmentId`):
+   - Główny właściciel: przesyłka wpływająca
+   - Przypadek użycia: dokumenty otrzymane w ramach przesyłki
+
+2. **Dokument powiązany ze sprawą** (`caseId`):
+   - Główny właściciel: sprawa (rekord może mieć lub nie mieć przypisany znak sprawy)
+   - Przypadek użycia: dokumenty przypisane do konkretnej sprawy lub zgrupowane tematycznie
+
+3. **Dokument samodzielny** (brak powiązań):
+   - Główny właściciel: sam dokument
+   - Przypadek użycia: dokument „przyniesiony", nieprzypisany jeszcze do sprawy
+
+### Implikacje dla RBAC
+
+- Dostęp do załączników dokumentu jest kontrolowany przez:
+  1. Uprawnienia do głównego właściciela (przesyłka/sprawa)
+  2. Poziom dostępu dokumentu (`accessLevel`)
+  3. Status właściciela (np. sprawa w stanie `read-only`)
+
+- RBAC musi uwzględniać łańcuch uprawnień: `user → owner entity → document → attachments`
+
+### Cykl życia załączników
+
+- Przy tworzeniu dokumentu: upload plików poprzez moduł `attachments`, referencje zapisywane w `records.documents`
+- Przy aktualizacji dokumentu: możliwość dodawania/usuwania załączników
+- Przy usuwaniu dokumentu: polityka usuwania załączników do zdefiniowania (cascade delete lub orphan handling)
+
+## Szablony spraw (Case Templates)
+
+**Szablon sprawy** umożliwia standaryzację i dostosowanie procesu zakładania spraw do różnych typów postępowań bez modyfikacji kodu systemu.
+
+### Model konceptualny
+
+Szablon sprawy (`records.case_templates`) to definicja struktury i reguł dla konkretnego typu sprawy:
+
+- **Identyfikacja**: nazwa, kod, opis szablonu
+- **Struktura danych**: definicja pól custom fields (wymagane/opcjonalne, typy, walidacje)
+- **Wartości domyślne**: domyślne wartości dla pól sprawy
+- **Klasyfikacja**: powiązanie z klasą JRWA (opcjonalne lub wymagane)
+- **Role stron**: definicja ról dla stron sprawy (np. wnioskodawca, uczestnik)
+- **Konfiguracja**: ustawienia widoczności pól, kolejność wyświetlania
+
+### Relacje z innymi encjami
+
+- `case_template.jrwaClassId` (opcjonalne)
+  - Szablon może sugerować domyślną klasę JRWA dla spraw tworzonych na jego podstawie
+- `case.caseTemplateId` (opcjonalne)
+  - Sprawa może być utworzona na podstawie szablonu
+  - Referencja do szablonu pozwala na zachowanie kontekstu i ułatwia raportowanie
+
+### Korzyści z używania szablonów
+
+1. **Elastyczność**: Różne typy spraw (np. wniosek o dotację, skarga, postępowanie administracyjne) mogą mieć różne struktury danych bez zmian w kodzie
+2. **Standaryzacja**: Zapewnienie spójności danych dla spraw tego samego typu
+3. **Ułatwienie użytkownika**: Predefiniowane pola i wartości przyspieszają zakładanie spraw
+4. **Raportowanie**: Łatwiejsze grupowanie i analizowanie spraw według typu
+5. **Konfigurowalność**: Administratorzy mogą tworzyć nowe typy spraw bez angażowania developerów
+
+### Zastosowanie zamiast koncepcji "dziedziny"
+
+Szablony spraw zastępują i rozszerzają koncepcję "dziedziny" (domain):
+
+- **Dziedzina** była statycznym, zakodowanym podziałem na obszary tematyczne
+- **Szablon sprawy** to dynamiczny, konfigurowalny mechanizm definiowania typów spraw
+- Jeden szablon może obsługiwać wiele podobnych przypadków użycia
+- Możliwość tworzenia dziedziczenia między szablonami (w przyszłości)
+
+### Zasady spójności
+
+- Szablon jest niezmienny po utworzeniu spraw na jego podstawie (wersjonowanie)
+- Zmiana szablonu nie wpływa na istniejące sprawy (zachowanie historii)
+- Sprawa może być utworzona bez szablonu (dla przypadków ad-hoc)
+- Szablon definiuje strukturę, ale nie wymusza workflow (to osobny mechanizm)

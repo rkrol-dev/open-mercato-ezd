@@ -1,0 +1,324 @@
+---
+title: Mapowanie API (CRUD)
+sidebar_position: 60
+---
+
+Ten dokument opisuje minimalny zestaw endpointów CRUD dla MVP.
+
+:::tip Implementacja
+Szczegółowa analiza wdrożeniowa znajduje się w: [Analiza wdrożeniowa - Records](../../wdrozenie/records-przesylki-wplywajace#api)
+:::
+
+## Zasady
+
+- Każda encja MVP ma standardowe operacje: list/get/create/update/delete.
+- Dla list: paginacja, podstawowe filtrowanie, sortowanie.
+- Brak procesów asynchronicznych w MVP.
+
+<a id="proponowane-zasoby"></a>
+## Proponowane zasoby
+
+| Zasób | Endpoint (docelowy) | Uwagi |
+|---|---|---|
+| Komórki organizacyjne („kancelarie”) | `/api/directory/organizations` | Kancelaria jest elementem struktury organizacyjnej (bez `records.offices`). Użytkownicy są przypisani do komórek organizacyjnych. |
+| Przesyłki wpływające | `/api/records/incoming-shipments` | RPW jako numeracja na rekordzie, nadawana w osobnej akcji „Zarejestruj wpływ” (wzorzec jak `salesDocumentNumberGenerator`) |
+| Dokumenty | `/api/records/documents` | dokument może istnieć sam |
+| Koszulki | `/api/records/folders` | koszulka → sprawa 1:1 (patrz niżej) |
+| Sprawy | `/api/records/cases` | nie inicjujemy automatycznie z przesyłki |
+| Powiązania | `/api/records/record-links` | neutralne, symetryczne linki spraw/koszulek |
+| Spisy spraw | `/api/records/case-registers` | numeracja spraw do dopięcia |
+| JRWA | `/api/records/jrwa-classes` | drzewo klas |
+| Lokalizacje składu | `/api/records/chronological-locations` | słownik |
+| Historia lokalizacji | `/api/records/chronological-assignments` | historia przypisań dokument↔lokalizacja |
+| Strony (Case Parties) | `/api/records/case-parties` | podmioty zaangażowane w sprawę; RBAC przez sprawę |
+
+## Operacje „na granicy CRUD"
+
+<a id="rejestracja-wplywu"></a>
+### Rejestracja wpływu (nadanie RPW)
+
+Nadanie numeru RPW jest osobnym krokiem (poza CRUD):
+
+- `POST /api/records/incoming-shipments/{id}/register` – nadaje RPW, ustawia status `registered`
+
+W MVP traktujemy to jako prostą akcję procesową bez workflow.
+
+### Read-only (zamknięcie / otwarcie)
+
+Sprawa może zostać ustawiona jako **read-only** (zamknięta). Read-only:
+
+- blokuje edycję pól,
+- blokuje dopinanie/odpinanie dokumentów,
+- blokuje dodawanie/usuwanie powiązań.
+
+Read-only jest odwracalne (reopen), ale wymaga dedykowanego uprawnienia (RBAC) — do ustalenia w module `records`.
+
+W MVP traktujemy to jako standardowy `PATCH/PUT` na encji (`isReadOnly: true/false`).
+
+### Powiązania (neutralne, symetryczne)
+
+Powiązania są neutralne (bez typu/etykiety) i symetryczne.
+
+W MVP:
+
+- tworzenie: `POST /api/records/record-links`
+- usuwanie: `DELETE /api/records/record-links/{id}`
+- listowanie: `GET /api/records/record-links?type=case&id=<uuid>`
+
+Walidacje:
+
+- brak duplikatów A–B i B–A,
+- A != B,
+- jeśli dowolna strona jest read-only → brak zmian w powiązaniach.
+
+## Przesyłka: oznaczenia odwzorowania
+
+Zamiast statusów przesyłka posiada pola/flagę odwzorowania:
+
+- rejestracja w składzie chronologicznym
+- odwzorowanie pełne / częściowe
+
+Te pola są aktualizowane przez standardowe `PATCH/PUT` na przesyłce.
+
+## Dokumenty i załączniki
+
+Dokument jest konceptualnie **załącznikiem z metadanymi kancelaryjnymi/archiwalnymi**. Wykorzystuje moduł `attachments` (core) do zarządzania plikami.
+
+**Kluczowe zasady** (decyzje Q3-DOC-001/002/003):
+- **Typ/format pliku NIE jest polem dokumentu** – pochodzi z `attachments.mime_type`
+- **1 dokument = 1 przesyłka** – dokumenty nie są współdzielone między przesyłkami
+- Walidacja wymogu "minimum 1 dokument" odbywa się w akcji `register` przesyłki (nie w CRUD dokumentu)
+- Soft-delete: zalecane blokowanie usunięcia dokumentu referencjonowanego przez przesyłkę
+
+### Endpointy dokumentów z załącznikami
+
+Standardowe operacje CRUD na `/api/records/documents`:
+
+- `POST /api/records/documents` – tworzenie dokumentu
+  - Payload zawiera metadane dokumentu + opcjonalne `attachmentIds` (jeśli pliki były wcześniej uploadowane)
+  - Alternatywnie: multipart/form-data z plikami + metadane w jednym request
+- `GET /api/records/documents/{id}` – pobieranie metadanych dokumentu
+  - Response zawiera `attachmentIds` z referencjami do plików
+- `PATCH/PUT /api/records/documents/{id}` – aktualizacja metadanych i/lub załączników
+  - Możliwość dodawania/usuwania załączników (przez zmianę `attachmentIds`)
+  - Walidacja: jeśli dokument jest powiązany z encją `read-only`, blokujemy zmianę załączników
+- `DELETE /api/records/documents/{id}` – usuwanie dokumentu
+  - Polityka usuwania załączników do zdefiniowania (cascade delete lub orphan handling)
+
+### Integracja z modułem `attachments`
+
+Moduł `records` wykorzystuje standardowe endpointy modułu `attachments`:
+
+- `POST /api/attachments` – upload pliku (zwraca `attachmentId`)
+- `GET /api/attachments/{id}` – pobranie metadanych załącznika
+- `GET /api/attachments/{id}/download` – download pliku
+- `DELETE /api/attachments/{id}` – usuwanie pliku
+
+### RBAC dla załączników
+
+Dostęp do załączników dokumentu jest kontrolowany przez:
+
+1. **Uprawnienia do głównego właściciela**:
+   - Jeśli dokument powiązany z przesyłką → sprawdź uprawnienia do przesyłki
+   - Jeśli dokument powiązany ze sprawą → sprawdź uprawnienia do sprawy (niezależnie od tego, czy ma przypisany znak sprawy)
+   - Jeśli dokument samodzielny → sprawdź uprawnienia do dokumentu
+
+2. **Poziom dostępu dokumentu** (`accessLevel`):
+   - publiczny / częściowo / niepubliczny
+   - Wpływa na widoczność załączników
+
+3. **Status właściciela**:
+   - Jeśli sprawa jest `read-only` → blokada modyfikacji załączników (dodawanie/usuwanie)
+   - Odczyt załączników pozostaje dozwolony
+
+Implementacja RBAC w module `records` musi zapewnić, że użytkownik pobierający załącznik przez `/api/attachments/{id}/download` ma odpowiednie uprawnienia do dokumentu i jego głównego właściciela.
+
+
+
+## Kancelaria (komórka organizacyjna): wielokancelaryjność i RBAC
+
+Kancelaria jest reprezentowana jako komórka organizacyjna w module `directory`.
+
+- brak dedykowanego CRUD `/api/records/offices`
+- użytkownik ma dostęp do przesyłek/dokumentów w scope komórek organizacyjnych, do których jest przypisany
+
+## RPW: numeracja z wykorzystaniem mechanizmów OpenMercato
+
+### Generator numerów RPW
+
+RPW wykorzystuje wzorzec analogiczny do `salesDocumentNumberGenerator`:
+
+```typescript
+interface RPWNumberGenerator {
+  // Zakres numeracji
+  scope: {
+    organizationId: string
+    tenantId: string
+    year: number
+  }
+  
+  // Generowanie numeru
+  generate(): Promise<{
+    rpwNumber: string      // Sformatowany numer
+    rpwSequence: number    // Pozycja w sekwencji
+    format: string         // Użyty format
+  }>
+  
+  // Podgląd następnego numeru (bez zajmowania)
+  peek(): Promise<number>
+  
+  // Ustawienie następnego numeru (np. po migracji)
+  setNext(value: number): Promise<void>
+}
+```
+
+### Implementacja
+
+- **Tabela sekwencji**: `incoming_shipment_sequences` (analogicznie do `sales_document_sequences`)
+  - Klucz: `(organization_id, tenant_id, document_kind)`
+  - `document_kind` koduje scope roczny, np. `rpw:${yyyy}`
+    - dzięki temu sekwencja resetuje się rocznie bez dodawania osobnej kolumny `year`
+  - Pole `current_value` z atomic increment
+  - Obsługa concurrency przez `INSERT ... ON CONFLICT DO UPDATE`
+
+- **Generowanie w akcji „Zarejestruj wpływ”**:
+  - Wywołanie generatora w `POST /api/records/incoming-shipments/{id}/register`
+  - Pola `rpwNumber` (i ewentualnie `rpwSequence`) są tylko do odczytu (nie można ich edytować)
+
+Uwagi:
+- format numeru RPW jest narzucony: `RPW/{kanc_id}/{seq:5}/{yyyy}`
+- `kanc_id` jest identyfikatorem komórki organizacyjnej (zob. backlog decyzji wdrożeniowych)
+
+### Rejestracja chronologiczna
+
+Pole `hasChronologicalRegistration: boolean` na przesyłce:
+
+- Aktualizacja przez `PATCH /api/records/incoming-shipments/{id}`
+- Proces:
+  1. Przesyłka powstaje jako `draft`
+  2. Nadanie RPW: `POST /api/records/incoming-shipments/{id}/register`
+  3. Rejestracja w składzie chronologicznym to osobny krok (ustawienie `hasChronologicalRegistration = true`)
+  3. Opcjonalnie: przypisanie lokalizacji fizycznej (dla przesyłek papierowych)
+
+## Strony (Case Parties): zarządzanie podmiotami sprawy
+
+## JRWA: import CSV i wersjonowanie
+
+### Operacja importu
+
+`POST /api/records/jrwa-classes/import` – import CSV z klasami JRWA
+
+**Decyzje Q3-JRWA-001/002/003**:
+- Import realizowany jako **batch insert z walidacją w transakcji**
+- Walidacja przed importem:
+  - Sprawdzenie poprawności struktury CSV (kolumny: `code`, `name`, `parent_code`, `retention_years`, `retention_category`, `version`)
+  - Unikalność kodów w ramach importowanej wersji
+  - Istnienie `parent_code` dla wszystkich dzieci (brak orphans)
+  - Brak cyklicznych zależności
+- Błędy w CSV **blokują cały import** z raportem błędów
+- Import **tworzy nową wersję** (`version++`) – stare rekordy archiwizowane (`is_active=false`)
+- **Kod JRWA unikalny** w ramach całego drzewa (scope: `tenant_id` + `organization_id` + `version`)
+
+### Format żądania
+
+```
+POST /api/records/jrwa-classes/import
+Content-Type: multipart/form-data
+
+file: [CSV file]
+```
+
+### Format odpowiedzi (sukces)
+
+```json
+{
+  "success": true,
+  "version": 2,
+  "imported": 150,
+  "archived": 145
+}
+```
+
+### Format odpowiedzi (błąd)
+
+```json
+{
+  "success": false,
+  "errors": [
+    { "line": 5, "code": "1234", "error": "Parent code '1200' not found" },
+    { "line": 8, "code": "5678", "error": "Duplicate code" }
+  ]
+}
+```
+
+### Edycja pojedynczych klas
+
+Oprócz importu CSV, możliwe jest ręczne dodawanie/edycja pojedynczych klas JRWA przez standardowe CRUD:
+- `POST /api/records/jrwa-classes` – dodanie nowej klasy do aktualnej wersji
+- `PATCH/PUT /api/records/jrwa-classes/{id}` – edycja klasy w aktualnej wersji
+- `DELETE /api/records/jrwa-classes/{id}` – usunięcie klasy (soft-delete: `is_active=false`)
+
+**Uprawnienia**:
+- `records.jrwa_classes.manage` – CRUD pojedynczych klas
+- `records.jrwa_classes.import` – import CSV (osobno; potencjalnie destrukcyjna operacja)
+
+
+### Operacje CRUD
+
+Standardowe operacje na `/api/records/case-parties`:
+
+- `POST /api/records/case-parties` – dodanie strony do sprawy
+  - Wymagane: `caseId`, `role`, `partyId` LUB `partyDisplayName`
+  - Walidacja: jeśli sprawa jest `read-only` → błąd 403
+- `GET /api/records/case-parties?caseId={uuid}` – lista stron sprawy
+- `GET /api/records/case-parties/{id}` – szczegóły strony
+- `PATCH/PUT /api/records/case-parties/{id}` – aktualizacja strony
+  - Walidacja: jeśli sprawa jest `read-only` → błąd 403
+- `DELETE /api/records/case-parties/{id}` – usunięcie strony
+  - Walidacja: jeśli sprawa jest `read-only` → błąd 403
+
+### RBAC dla stron
+
+Dostęp do stron jest kontrolowany przez uprawnienia do sprawy:
+
+- Użytkownik widzi strony tylko tych spraw, do których ma dostęp
+- Poziom dostępu sprawy wpływa na widoczność stron
+- Historia zmian stron jest zachowana (audit log)
+
+### Integracja z rejestrem podmiotów
+
+Strona może być powiązana z podmiotem z zewnętrznego rejestru:
+
+- `partyId` → referencja do modułu `customers` (lub innego rejestru)
+- Jeśli podmiot nie jest zarejestrowany → użyj `partyDisplayName` (ad-hoc)
+- W przyszłości: możliwość "materializacji" ad-hoc strony jako pełnego podmiotu
+
+
+## Search/indexer requirements (MVP)
+
+W MVP wyszukiwanie Cmd+K ma obejmować tylko:
+
+- **Sprawy**
+- **Dokumenty**
+
+Strategia search: **tokens**.
+
+### Wymagania dla indeksowania (`query_index`)
+
+CRUD dla `records.cases` i `records.documents` musi odświeżać indeks.
+
+Checklist (implementacyjnie):
+
+- Każdy CRUD route ma ustawiony `indexer: { entityType }`.
+- `entityType` jest stabilnym identyfikatorem typu rekordu (np. `records:case`, `records:document` – do potwierdzenia konwencji).
+- Po create/update/delete emitujemy side effects tak, aby rekord był widoczny w `tokens` search.
+
+### Wymagania dla prezentacji wyników (`search.ts`)
+
+Ponieważ `tokens` search renderuje wynik na podstawie konfiguracji w module search, moduł `records` musi dostarczyć presenter.
+
+Checklist:
+
+- Plik `search.ts` w module `records` zawiera wpisy dla `records:case` oraz `records:document`.
+- Każdy wpis ma `formatResult` (title/subtitle/icon), aby uniknąć wyników w stylu „UUID”.
+- (Opcjonalnie) `resolveUrl` kieruje do docelowej strony backend (gdy powstanie UI).

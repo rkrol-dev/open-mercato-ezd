@@ -1,0 +1,193 @@
+---
+title: Słownik danych (MVP)
+sidebar_position: 70
+---
+
+Ten dokument definiuje minimalne pola dla encji MVP oraz ich źródła (np. Pakiet A).
+
+:::tip Implementacja
+Szczegółowa analiza wdrożeniowa znajduje się w: [Analiza wdrożeniowa - Records](../../wdrozenie/records-przesylki-wplywajace)
+:::
+
+## Kancelaria / komórka organizacyjna
+
+W MVP nie modelujemy kancelarii jako osobnej encji w module `records`.
+
+- „Kancelaria” = komórka organizacyjna w `directory.organizations`.
+- Przesyłki przechowują ID komórki organizacyjnej (wskazanie kancelarii) w polu `...OrgUnitId`.
+
+<a id="przesylka-wplywajaca-incoming-shipment"></a>
+## Przesyłka wpływająca (incoming shipment)
+
+Źródło: Pakiet A.
+
+| Pole | Typ | Wymagane | Uwagi |
+|---|---|---:|---|
+| `receivingOrgUnitId` | uuid | tak | Komórka organizacyjna („kancelaria”) obsługująca wpływ |
+| `subject` | string | tak | Temat |
+| `senderId` lub `senderDisplayName` | string | tak* | jeśli nadawca anonimowy, przechowujemy displayName/minimum |
+| `senderAnonymous` | boolean | nie | domyślnie false |
+| `receivedAt` | date | tak** | data wpływu (wymagana najpóźniej na etapie rejestracji RPW) |
+| `deliveryMethod` | enum | tak | typ wpływu (np. `paper` / `epuap` / `email` – robocze) |
+| `status` | enum | tak | `draft` / `registered` (MVP). Planowane: `archived` |
+| `attachmentIds` | uuid[] | nie | **Phase 1**: załączniki bezpośrednio z modułu `attachments` (domyślnie: `[]`). **Phase 2 (planowane)**: pole zostanie przemianowane na `documentIds` (relacja do `records.documents`) |
+| `rpwNumber` | string | tak*** | Numer RPW nadawany w akcji „Zarejestruj wpływ”; w `draft` może być pusty |
+| `rpwSequence` | number | nie | Pozycja w sekwencji (wewnętrzna; opcjonalna) |
+| `postedAt` | date | nie | data nadania |
+| `senderReference` | string | nie | numer nadawczy |
+| `remarks` | string | nie | uwagi |
+| `documentDate` | date | nie | data na piśmie |
+| `noDocumentDate` | boolean | nie | gdy brak daty |
+| `documentSign` | string | nie | znak na piśmie |
+| `noDocumentSign` | boolean | nie | gdy brak znaku |
+| `accessLevel` | enum | tak | publiczny / częściowo / niepubliczny (robocze) |
+| `hasChronologicalRegistration` | boolean | nie | oznaczenie |
+| `mappingCoverage` | enum | nie | `none` / `partial` / `full` |
+
+`*` Wymagalność nadawcy: doprecyzować regułę (senderId vs senderDisplayName) na podstawie trybu „nadawca anonimowy”.
+
+`**` W praktyce: `receivedAt` jest wymagane do rejestracji RPW.
+
+`***` Format numeru RPW jest narzucony w MVP: `RPW/{kanc_id}/{seq:5}/{yyyy}`. Format nie jest konfigurowalny na etapie MVP.
+
+
+## Przesyłka wychodząca (outgoing shipment)
+
+**Nota terminologiczna:** RKW = rejestr przesyłek wychodzących (terminologia projektowa).
+
+| Pole | Typ | Wymagane | Uwagi |
+|---|---|---:|---|
+| `sendingOrgUnitId` | uuid | tak | Komórka organizacyjna („kancelaria”) obsługująca wysyłkę |
+| `rkwNumber` | string | tak (auto) | Numer RKW - generowany automatycznie wg formatu Kancelarii |
+| `rkwSequence` | number | tak (auto) | Pozycja w sekwencji RKW (per Kancelaria) |
+| `recipientId` lub `recipientDisplayName` | string | tak* | jeśli odbiorca anonimowy, przechowujemy displayName/minimum |
+| `recipientAnonymous` | boolean | nie | domyślnie false |
+| `sentAt` | date | tak | data wysłania |
+| `deliveryMethod` | enum | tak | `in_person` / `epuap` / `e_doreczenia` / `mail` (robocze) |
+| `remarks` | string | nie | uwagi |
+| `accessLevel` | enum | tak | publiczny / częściowo / niepubliczny (robocze) |
+
+`*` Wymagalność odbiorcy: doprecyzować regułę (recipientId vs recipientDisplayName) na podstawie trybu „odbiorca anonimowy".
+
+<a id="dokument"></a>
+## Dokument
+
+| Pole | Typ | Wymagane | Uwagi |
+|---|---|---:|---|
+| `title` | string | tak | tytuł dokumentu |
+| `kind` | enum | tak | np. `pismo` (robocze) |
+| `accessLevel` | enum | tak | publiczny/częściowo/niepubliczny |
+| `receivedAt` | date | nie | jeśli dotyczy |
+| `documentDate` | date | nie | data na dokumencie |
+| `documentSign` | string | nie | znak na dokumencie |
+| `incomingShipmentId` | uuid | nie | link do przesyłki wpływającej |
+| `outgoingShipmentId` | uuid | nie | link do przesyłki wychodzącej. Dokument z wpływu i odpowiedź wychodząca to jeden rekord z dwoma numerami przesyłek |
+| `caseId` | uuid | nie | link do sprawy (niezależnie od tego, czy ma przypisany znak sprawy) |
+| `attachmentIds` | uuid[] | nie | referencje do załączników (plików) z modułu `attachments` |
+| `disposalStatus` | enum | nie | status brakowania: `null` (domyślnie), `pending_disposal`, `disposed` |
+| `disposalDate` | date | nie | data brakowania (wypełniane przy `disposalStatus = 'disposed'`) |
+| `disposalProtocolNumber` | string | nie | numer protokołu brakowania |
+| `disposalApprovedBy` | uuid | nie | ID użytkownika zatwierdzającego brakowanie |
+
+Zasady spójności:
+
+- Dokument może być przypięty do sprawy (niezależnie od tego, czy ma przypisany znak sprawy) lub do żadnej.
+- Dokument może mieć zarówno `incomingShipmentId` jak i `outgoingShipmentId` (dokument wpływający i odpowiedź wychodząca to jeden rekord).
+- `attachmentIds` zawiera referencje do fizycznych plików zarządzanych przez moduł `attachments` (core).
+- **Typ/format pliku NIE jest polem dokumentu** – pochodzi z `attachments.mime_type` (oraz `file_name`, `file_size`, itd.)
+- **1 dokument = 1 przesyłka** – dokumenty nie są współdzielone między przesyłkami
+- **Brakowanie dokumentów** (decyzja Q4-DOC-002): `disposalStatus` oznacza formalne brakowanie zgodnie z procedurami archiwalnymi, podczas gdy standardowe usuwanie (soft-delete) jest dostępne tylko dla roboczych/błędnych dokumentów. Dokumenty z RPW lub w składzie chronologicznym wymagają formalnego brakowania.
+- Główny właściciel załączników jest określany przez kontekst dokumentu:
+  - Jeśli `incomingShipmentId` lub `outgoingShipmentId` → właściciel: przesyłka (wpływająca lub wychodząca)
+  - Jeśli `caseId` → właściciel: sprawa (niezależnie od tego, czy ma przypisany znak sprawy)
+  - Jeśli brak powiązań → właściciel: dokument
+
+## Sprawa
+
+**Uwaga:** Sprawa i Koszulka są tą samą encją. Sprawa = Koszulka z przypisanym znakiem sprawy.
+
+| Pole | Typ | Wymagane | Uwagi |
+|---|---|---:|---|
+| `title` | string | tak | nazwa sprawy/koszulki |
+| `caseRegisterId` | uuid | tak | spis spraw |
+| `jrwaClassId` | uuid | tak | JRWA |
+| `sign` | string | nie | znak sprawy; gdy pusty, rekord funkcjonuje jako "Koszulka" (kontener roboczy/teczka tematyczna); zasady generacji do dopięcia |
+| `isReadOnly` | boolean | tak | blokuje zmiany (pola, dokumenty, powiązania); odwracalne z uprawnieniem |
+
+## Powiązanie (record link)
+
+Powiązanie jest neutralne (bez typu/etykiety) i symetryczne. Łączy rekordy sprawy (niezależnie od tego, czy mają przypisany znak sprawy).
+
+| Pole | Typ | Wymagane | Uwagi |
+|---|---|---:|---|
+| `aType` | enum | tak | `case` |
+| `aId` | uuid | tak | id rekordu A |
+| `bType` | enum | tak | `case` |
+| `bId` | uuid | tak | id rekordu B |
+| `createdAt` | datetime | nie | audit/porządek chronologiczny |
+
+Zasady spójności:
+
+- powiązanie jest symetryczne: A↔B (nie przechowujemy osobno B↔A)
+- A != B
+- rekomendacja: kanoniczne uporządkowanie par (żeby uniknąć duplikatów)
+
+## Spis spraw
+
+| Pole | Typ | Wymagane | Uwagi |
+|---|---|---:|---|
+| `name` | string | tak | nazwa spisu |
+| `year` | number | nie | jeśli numeracja roczna |
+| `jrwaClassId` | uuid | nie | jeśli spis per JRWA |
+
+<a id="jrwa-klasa"></a>
+## JRWA (klasa)
+
+| Pole | Typ | Wymagane | Uwagi |
+|---|---|---:|---|
+| `symbol` | string | tak | np. „WD-9821” (robocze) |
+| `title` | string | tak | hasło klasy |
+| `parentId` | uuid | nie | drzewo |
+| `retentionCategory` | enum | nie | A/B/BE (robocze) |
+| `retentionYears` | number | nie | |
+| `archivalPackageVariant` | enum | nie | `package_a` / `package_b` (wariant pakietu archiwalnego; nie mylić z `retentionCategory`) |
+
+## Skład chronologiczny: lokalizacja
+
+| Pole | Typ | Wymagane | Uwagi |
+|---|---|---:|---|
+| `code` | string | tak | identyfikator miejsca |
+| `description` | string | nie | opis |
+
+## Historia lokalizacji (przypisania)
+
+| Pole | Typ | Wymagane | Uwagi |
+|---|---|---:|---|
+| `documentId` | uuid | tak | |
+| `locationId` | uuid | tak | |
+| `validFrom` | datetime | tak | |
+| `validTo` | datetime | nie | null = aktualne |
+| `note` | string | nie | |
+
+## Strony (Case Parties)
+
+Podmioty zaangażowane w sprawę. Każda strona ma określoną rolę w sprawie.
+
+| Pole | Typ | Wymagane | Uwagi |
+|---|---|---:|---|
+| `caseId` | uuid | tak | Sprawa, do której należy strona |
+| `partyId` | uuid | nie | Referencja do podmiotu w rejestrze (np. moduł `customers`) |
+| `partyDisplayName` | string | tak* | Nazwa podmiotu - wymagane jeśli brak `partyId` |
+| `partyType` | enum | tak | `person` / `legal_entity` / `organizational_unit` (robocze) |
+| `role` | enum | tak | `applicant` / `participant` / `observer` / `party_to_proceedings` (robocze) |
+| `contactEmail` | string | nie | Email kontaktowy |
+| `contactPhone` | string | nie | Telefon kontaktowy |
+| `address` | string | nie | Adres (jako tekst lub JSON z komponentami) |
+| `notes` | string | nie | Dodatkowe uwagi o stronie |
+
+Zasady spójności:
+
+- Wymagane jest `partyId` LUB `partyDisplayName` (co najmniej jeden)
+- Jedna sprawa może mieć wiele stron (różne role)
+- Jeśli sprawa jest `read-only`, strony nie mogą być modyfikowane
+- Historia zmian stron jest zachowana (audit log)

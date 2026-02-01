@@ -1,0 +1,57 @@
+---
+title: Zakres i MVP
+sidebar_position: 20
+---
+
+Ten dokument opisuje **granice** oraz **definicję MVP** dla mapowania kancelaryjno‑archiwalnego EZD na OpenMercato.
+
+## MVP = CRUD
+
+MVP obejmuje:
+
+- CRUD dla 11 encji MVP (w tym encja szablonów spraw, lokalizacji chronologicznej, przesyłek wychodzących i stron),
+- listy z paginacją i filtrowaniem po podstawowych polach,
+- walidacje wejścia (Zod + OpenAPI),
+- audyt podstawowych zmian (jeśli jest standardem w CRUD).
+
+Nie obejmuje na start:
+
+- workflow (stany, kroki, user tasks),
+- kolejki/asynchroniczności,
+- pełnego obiegu dekretacji/akceptacji,
+- automatycznej inicjacji sprawy z przesyłki.
+
+## Encje MVP (domenowo)
+
+- Kancelaria (Office) – komórka organizacyjna w `directory` (bez osobnej encji `records.offices`)
+- Przesyłka wpływająca
+- Przesyłka wychodząca
+- JRWA
+- Spis spraw
+- Szablon sprawy – definiuje strukturę i reguły dla różnych typów spraw
+- Sprawa (obejmuje również funkcjonalność "Koszulki" - rekordy bez przypisanego znaku sprawy)
+- Powiązanie (neutralne)
+- Dokument
+- Skład chronologiczny – lokalizacja (jako encja z historią zmian)
+- Strony (Case Parties) – podmioty zaangażowane w sprawę
+
+Uwaga: RPW (rejestr przesyłek wpływających) i RKW (rejestr przesyłek wychodzących) są traktowane jako **widok/numeracja**, a nie osobne encje.
+
+**Uwaga:** Sprawa i Koszulka są tą samą encją (`records.cases`). Gdy rekord nie ma przypisanego znaku sprawy, funkcjonuje jako kontener roboczy/teczka tematyczna.
+
+## Granice danych (papier/nośniki)
+
+- „Skład chronologiczny – lokalizacja” jest modelowany jako osobna encja.
+- Zmiany lokalizacji muszą być **historyczne** (nie nadpisujemy w miejscu).
+
+## Założenia i ograniczenia
+
+- Brak relacji ORM między modułami: powiązania realizujemy przez pola typu `...Id`.
+- Każdy rekord jest scope’owany tenantem/organizacją (jeśli dotyczy środowiska uruchomieniowego).
+- UI/UX nie jest głównym celem tego dokumentu – tu opisujemy model, API i decyzje (ale MVP przewiduje minimalne strony backoffice dla przesyłek i JRWA).
+
+## Otwarte kwestie (do dopięcia)
+
+1. Minimalne statusy sprawy i koszulki (w tym read-only: zamknięcie/otwarcie + uprawnienia).
+2. Zakres numeracji i unikalności: RPW, spis spraw, znak sprawy.
+3. Model załączników (osobne dokumenty vs pliki w dokumencie).
