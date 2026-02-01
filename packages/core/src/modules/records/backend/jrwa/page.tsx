@@ -61,7 +61,7 @@ export default function JrwaClassesPage() {
     },
   ]
 
-  const columns: ColumnDef<JRWAClassRow>[] = [
+  const columns: ColumnDef<JRWAClassRow, any>[] = [
     {
       accessorKey: 'code',
       header: t('records.jrwa.field.code', 'Code'),
@@ -101,7 +101,7 @@ export default function JrwaClassesPage() {
       accessorKey: 'isActive',
       header: t('records.jrwa.field.isActive', 'Active'),
       cell: ({ row }) => (
-        <Badge variant={row.original.isActive ? 'success' : 'secondary'}>
+        <Badge variant={row.original.isActive ? 'default' : 'secondary'}>
           {row.original.isActive ? t('common.yes', 'Yes') : t('common.no', 'No')}
         </Badge>
       ),
@@ -111,7 +111,7 @@ export default function JrwaClassesPage() {
       header: t('common.actions', 'Actions'),
       cell: ({ row }) => (
         <RowActions
-          actions={[
+          items={[
             {
               label: t('records.jrwa.action.edit', 'Edit'),
               href: `/backend/records/jrwa/${row.original.id}`,
@@ -119,14 +119,14 @@ export default function JrwaClassesPage() {
             {
               label: t('records.jrwa.action.delete', 'Delete'),
               destructive: true,
-              onClick: async () => {
+              onSelect: async () => {
                 const confirmed = window.confirm(
                   t('records.jrwa.confirm.delete', 'Are you sure?')
                 )
                 if (!confirmed) return
 
                 try {
-                  await deleteCrud(`/api/records/jrwa-classes?id=${row.original.id}`)
+                  await deleteCrud(`/api/records/jrwa-classes`, row.original.id)
                   flash(t('records.jrwa.success.deleted', 'Deleted successfully'), 'success')
                   router.refresh()
                 } catch {

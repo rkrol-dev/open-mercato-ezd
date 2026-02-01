@@ -13,11 +13,11 @@ export type IncomingShipmentStatusBadgeProps = {
 export function IncomingShipmentStatusBadge({ status }: IncomingShipmentStatusBadgeProps) {
   const t = useT()
   
-  const variant = status === 'registered' ? 'success' : 'warning'
+  const variant = status === 'registered' ? 'default' : 'secondary'
   const label = t(`records.incomingShipments.status.${status}`, status)
   
   return (
-    <Badge variant={variant}>
+    <Badge variant={variant} className={status === 'draft' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' : ''}>
       {label}
     </Badge>
   )

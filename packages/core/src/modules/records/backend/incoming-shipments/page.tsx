@@ -56,7 +56,7 @@ export default function IncomingShipmentsPage() {
     },
   ]
 
-  const columns: ColumnDef<IncomingShipmentRow>[] = [
+  const columns: ColumnDef<IncomingShipmentRow, any>[] = [
     {
       accessorKey: 'rpwNumber',
       header: t('records.incomingShipments.field.rpwNumber', 'RPW Number'),
@@ -94,7 +94,7 @@ export default function IncomingShipmentsPage() {
       header: t('common.actions', 'Actions'),
       cell: ({ row }) => (
         <RowActions
-          actions={[
+          items={[
             {
               label: t('records.incomingShipments.action.edit', 'Edit'),
               href: `/backend/records/incoming-shipments/${row.original.id}`,
@@ -102,14 +102,14 @@ export default function IncomingShipmentsPage() {
             {
               label: t('records.incomingShipments.action.delete', 'Delete'),
               destructive: true,
-              onClick: async () => {
+              onSelect: async () => {
                 const confirmed = window.confirm(
                   t('records.incomingShipments.confirm.delete', 'Are you sure?')
                 )
                 if (!confirmed) return
 
                 try {
-                  await deleteCrud(`/api/records/incoming-shipments?id=${row.original.id}`)
+                  await deleteCrud(`/api/records/incoming-shipments`, row.original.id)
                   flash(t('records.incomingShipments.success.deleted', 'Deleted successfully'), 'success')
                   router.refresh()
                 } catch {
