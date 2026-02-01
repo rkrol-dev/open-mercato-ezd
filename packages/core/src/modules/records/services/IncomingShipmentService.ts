@@ -79,9 +79,21 @@ export class IncomingShipmentService {
       deletedAt: null,
     })
 
-    if ('rpwNumber' in data && shipment.rpwNumber) {
+    if (
+      ('rpwNumber' in data || 'rpw_number' in (data as any)) &&
+      shipment.rpwNumber
+    ) {
       throw new CrudHttpError(400, {
         error: 'Cannot modify RPW number once assigned',
+      })
+    }
+
+    if (
+      ('rpwSequence' in data || 'rpw_sequence' in (data as any)) &&
+      shipment.rpwSequence
+    ) {
+      throw new CrudHttpError(400, {
+        error: 'Cannot modify RPW sequence once assigned',
       })
     }
 

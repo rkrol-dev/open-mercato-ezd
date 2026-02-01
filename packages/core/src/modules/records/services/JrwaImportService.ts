@@ -38,7 +38,7 @@ export class JrwaImportService {
     }
   }
 
-  private transformRow(validated: any): ParsedCsvRow {
+  private transformRow(validated: z.infer<typeof jrwaImportCsvRowSchema>): ParsedCsvRow {
     const parsedRow: ParsedCsvRow = {
       code: validated.code,
       name: validated.name,
