@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
+import { pathToFileURL } from 'node:url'
 
 export type ChecksumRecord = {
   content: string
@@ -178,9 +179,20 @@ export function toSnake(s: string): string {
 
 export async function moduleHasExport(filePath: string, exportName: string): Promise<boolean> {
   try {
-    const mod = await import(filePath)
+    const importSpec = path.isAbsolute(filePath) ? pathToFileURL(filePath).href : filePath
+    const mod = await import(importSpec)
     return mod != null && Object.prototype.hasOwnProperty.call(mod, exportName)
   } catch {
+    // If runtime importing fails (common for TS sources / Windows absolute paths), fall back
+    // to a quick static check.
+    try {
+      if (fs.existsSync(filePath)) {
+        const content = fs.readFileSync(filePath, 'utf8')
+        const escaped = exportName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const re = new RegExp(`\\bexport\\s+(?:const|let|var|function|class)\\s+${escaped}\\b|\\bexport\\s*{[^}]*\\b${escaped}\\b`, 'm')
+        return re.test(content)
+      }
+    } catch {}
     return false
   }
 }

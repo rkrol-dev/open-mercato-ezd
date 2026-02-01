@@ -22,7 +22,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const container = await createRequestContainer()
     const auth = await getAuthFromRequest(request)
 
-    if (!auth?.organizationId || !auth?.tenantId) {
+    if (!auth?.orgId || !auth?.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const result = await service.syncSource(
       id,
-      auth.organizationId,
+      auth.orgId,
       auth.tenantId
     )
 

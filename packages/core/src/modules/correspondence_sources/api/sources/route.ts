@@ -139,7 +139,7 @@ const correspondenceSourceSchema = z.object({
   tenantId: z.string().uuid(),
   name: z.string(),
   sourceType: z.enum(['edoreczenia-mock', 'epuap', 'email']),
-  config: z.record(z.any()),
+  config: z.record(z.string(), z.any()),
   isActive: z.boolean(),
   lastSyncDate: z.date().nullable(),
   defaultReceivingOrgUnitId: z.string().uuid().nullable(),

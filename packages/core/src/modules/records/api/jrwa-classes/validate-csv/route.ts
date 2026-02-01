@@ -2,7 +2,8 @@ import { z } from 'zod'
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { JrwaImportService } from '../../../services/JrwaImportService'
-import type { RequestContext } from '@open-mercato/shared/lib/api/context'
+import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
+import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { jrwaValidateCsvRequestSchema } from '../../../data/validators'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 
@@ -10,12 +11,12 @@ export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['records.jrwa_classes.import'] },
 }
 
-export async function POST(request: NextRequest, context: RequestContext) {
+export async function POST(request: NextRequest) {
   try {
-    const container = context.container
-    const auth = context.auth
+    const container = await createRequestContainer()
+    const auth = await getAuthFromRequest(request)
 
-    if (!auth?.organizationId || !auth?.tenantId) {
+    if (!auth?.orgId || !auth?.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -46,31 +47,27 @@ const validationResponseSchema = z.object({
 })
 
 export const openApi: OpenApiRouteDoc = {
-  POST: {
-    summary: 'Validate JRWA CSV',
-    description: 'Validates CSV data for JRWA class import without actually importing. Returns validation result with errors and warnings.',
-    operationId: 'validateJrwaCsv',
-    tags: ['Records'],
-    requestBody: {
-      required: true,
-      content: {
-        'application/json': {
-          schema: jrwaValidateCsvRequestSchema,
+  methods: {
+    POST: {
+      summary: 'Validate JRWA CSV',
+      description: 'Validates CSV data for JRWA class import without actually importing. Returns validation result with errors and warnings.',
+      operationId: 'validateJrwaCsv',
+      tags: ['Records'],
+      requestBody: {
+        contentType: 'application/json',
+        schema: jrwaValidateCsvRequestSchema,
+      },
+      responses: [
+        {
+          status: 200,
+          description: 'Validation result',
+          schema: validationResponseSchema,
         },
-      },
-    },
-    responses: {
-      '200': {
-        description: 'Validation result',
-        content: {
-          'application/json': {
-            schema: validationResponseSchema,
-          },
+        {
+          status: 400,
+          description: 'Invalid request',
         },
-      },
-      '400': {
-        description: 'Invalid request',
-      },
+      ],
     },
   },
 }

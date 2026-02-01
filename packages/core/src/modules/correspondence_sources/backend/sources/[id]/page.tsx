@@ -58,7 +58,7 @@ export default function CorrespondenceSourceDetailPage() {
     name: z.string().min(1, 'Required'),
     sourceType: z.enum(['edoreczenia-mock', 'epuap', 'email']),
     isActive: z.boolean().optional(),
-    config: z.record(z.any()),
+    config: z.record(z.string(), z.any()),
     defaultReceivingOrgUnitId: z.string().optional(),
     defaultReceivingOrgUnitSymbol: z.string().optional(),
   })

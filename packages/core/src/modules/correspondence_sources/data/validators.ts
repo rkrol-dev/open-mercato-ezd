@@ -11,7 +11,7 @@ const scopedSchema = z.object({
 export const correspondenceSourceCreateSchema = scopedSchema.extend({
   name: z.string().trim().min(1).max(200),
   sourceType: z.enum(['edoreczenia-mock', 'epuap', 'email']),
-  config: z.record(z.any()),
+  config: z.record(z.string(), z.any()),
   isActive: z.boolean().optional(),
   defaultReceivingOrgUnitId: uuid().optional().nullable(),
   defaultReceivingOrgUnitSymbol: z.string().trim().max(50).optional().nullable(),
@@ -25,7 +25,7 @@ export const correspondenceSourceUpdateSchema = z
     scopedSchema.extend({
       name: z.string().trim().min(1).max(200).optional(),
       sourceType: z.enum(['edoreczenia-mock', 'epuap', 'email']).optional(),
-      config: z.record(z.any()).optional(),
+      config: z.record(z.string(), z.any()).optional(),
       isActive: z.boolean().optional(),
       defaultReceivingOrgUnitId: uuid().optional().nullable(),
       defaultReceivingOrgUnitSymbol: z.string().trim().max(50).optional().nullable(),

@@ -2,7 +2,8 @@ import { z } from 'zod'
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { IncomingShipmentService } from '../../../../services/IncomingShipmentService'
-import type { RequestContext } from '@open-mercato/shared/lib/api/context'
+import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
+import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { incomingShipmentRegisterSchema } from '../../../../data/validators'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 
@@ -10,19 +11,25 @@ export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['records.incoming_shipments.register'] },
 }
 
-export async function POST(request: NextRequest, context: RequestContext) {
-  try {
-    const container = context.container
-    const auth = context.auth
+interface RouteContext {
+  params: Promise<{
+    id: string
+  }>
+}
 
-    if (!auth?.organizationId || !auth?.tenantId) {
+export async function POST(request: NextRequest, context: RouteContext) {
+  try {
+    const params = await context.params
+    const container = await createRequestContainer()
+    const auth = await getAuthFromRequest(request)
+
+    if (!auth?.orgId || !auth?.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       )
     }
 
-    const params = await context.params
     const id = params?.id
 
     if (!id || typeof id !== 'string') {
@@ -35,7 +42,7 @@ export async function POST(request: NextRequest, context: RequestContext) {
     const body = await request.json()
     const validated = incomingShipmentRegisterSchema.parse({
       id,
-      organizationId: auth.organizationId,
+      organizationId: auth.orgId,
       tenantId: auth.tenantId,
       ...body,
     })
@@ -70,46 +77,30 @@ const registerResponseSchema = z.object({
 })
 
 export const openApi: OpenApiRouteDoc = {
-  POST: {
-    summary: 'Register incoming shipment',
-    description: 'Registers an incoming shipment by assigning an RPW number and changing status to registered. Only draft shipments can be registered.',
-    operationId: 'registerIncomingShipment',
-    tags: ['Records'],
-    parameters: [
-      {
-        name: 'id',
-        in: 'path',
-        required: true,
-        schema: { type: 'string', format: 'uuid' },
-        description: 'Incoming shipment ID',
-      },
-    ],
-    requestBody: {
-      required: false,
-      content: {
-        'application/json': {
-          schema: {
-            type: 'object',
-            properties: {},
-          },
+  methods: {
+    POST: {
+      summary: 'Register incoming shipment',
+      description: 'Registers an incoming shipment by assigning an RPW number and changing status to registered. Only draft shipments can be registered.',
+      operationId: 'registerIncomingShipment',
+      tags: ['Records'],
+      pathParams: z.object({
+        id: z.string().uuid(),
+      }),
+      responses: [
+        {
+          status: 200,
+          description: 'Shipment successfully registered with RPW number',
+          schema: registerResponseSchema,
         },
-      },
-    },
-    responses: {
-      '200': {
-        description: 'Shipment successfully registered with RPW number',
-        content: {
-          'application/json': {
-            schema: registerResponseSchema,
-          },
+        {
+          status: 400,
+          description: 'Invalid request or shipment cannot be registered (not in draft status)',
         },
-      },
-      '400': {
-        description: 'Invalid request or shipment cannot be registered (not in draft status)',
-      },
-      '404': {
-        description: 'Incoming shipment not found',
-      },
+        {
+          status: 404,
+          description: 'Incoming shipment not found',
+        },
+      ],
     },
   },
 }

@@ -1,3 +1,4 @@
+import type { RequiredEntityData } from '@mikro-orm/core'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { RecordsIncomingShipment } from '../data/entities'
 import { RpwGeneratorService } from './RpwGeneratorService'
@@ -60,7 +61,7 @@ export class IncomingShipmentService {
     })
   }
 
-  async create(data: Partial<RecordsIncomingShipment>): Promise<RecordsIncomingShipment> {
+  async create(data: RequiredEntityData<RecordsIncomingShipment>): Promise<RecordsIncomingShipment> {
     const shipment = this.em.create(RecordsIncomingShipment, data)
     await this.em.persistAndFlush(shipment)
     return shipment

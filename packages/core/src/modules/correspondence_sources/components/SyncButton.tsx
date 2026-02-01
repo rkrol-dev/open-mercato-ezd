@@ -49,12 +49,12 @@ export function SyncButton({
     setSyncing(true)
     
     try {
-      const response = await apiCallOrThrow<SyncResult>(`/api/correspondence-sources/sources/${sourceId}/sync`, {
+      const { result } = await apiCallOrThrow<SyncResult>(`/api/correspondence-sources/sources/${sourceId}/sync`, {
         method: 'POST',
       })
       
-      if (response && typeof response === 'object' && 'syncLogId' in response) {
-        setResult(response)
+      if (result) {
+        setResult(result)
         setShowResult(true)
         flash(t('correspondenceSources.sources.success.synced', 'Sync completed successfully'), 'success')
         
