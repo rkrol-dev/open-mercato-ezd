@@ -24,10 +24,9 @@ export interface CsvValidationResult {
 export class JrwaImportService {
   constructor(private readonly em: EntityManager) {}
 
-  private parseValidatedCsv(csvData: string): ParsedCsvRow[] {
-    let records: any[]
+  private parseCsvToRecords(csvData: string): any[] {
     try {
-      records = parseCsv(csvData, {
+      return parseCsv(csvData, {
         columns: true,
         skip_empty_lines: true,
         trim: true,
@@ -37,39 +36,35 @@ export class JrwaImportService {
         error: `CSV parse error: ${error instanceof Error ? error.message : 'Unknown error'}`,
       })
     }
+  }
 
-    const parsedRows: ParsedCsvRow[] = []
-    records.forEach((row) => {
-      const validated = jrwaImportCsvRowSchema.parse(row)
-      const parsedRow: ParsedCsvRow = {
-        code: validated.code,
-        name: validated.name,
-        description: validated.description,
-        parentCode: validated.parentCode,
+  private transformRow(validated: any): ParsedCsvRow {
+    const parsedRow: ParsedCsvRow = {
+      code: validated.code,
+      name: validated.name,
+      description: validated.description,
+      parentCode: validated.parentCode,
+    }
+
+    if (validated.retentionYears) {
+      const years = parseInt(validated.retentionYears, 10)
+      if (!isNaN(years) && years >= 0) {
+        parsedRow.retentionYears = years
       }
+    }
 
-      if (validated.retentionYears) {
-        const years = parseInt(validated.retentionYears, 10)
-        if (!isNaN(years) && years >= 0) {
-          parsedRow.retentionYears = years
-        }
+    if (validated.retentionCategory) {
+      const category = validated.retentionCategory.trim()
+      if (['A', 'B', 'BE', 'Bc'].includes(category)) {
+        parsedRow.retentionCategory = category as 'A' | 'B' | 'BE' | 'Bc'
       }
+    }
 
-      if (validated.retentionCategory) {
-        const category = validated.retentionCategory.trim()
-        if (['A', 'B', 'BE', 'Bc'].includes(category)) {
-          parsedRow.retentionCategory = category as 'A' | 'B' | 'BE' | 'Bc'
-        }
-      }
+    if (validated.archivalPackageVariant) {
+      parsedRow.archivalPackageVariant = validated.archivalPackageVariant
+    }
 
-      if (validated.archivalPackageVariant) {
-        parsedRow.archivalPackageVariant = validated.archivalPackageVariant
-      }
-
-      parsedRows.push(parsedRow)
-    })
-
-    return parsedRows
+    return parsedRow
   }
 
   parseAndValidateCsv(csvData: string): CsvValidationResult {
@@ -78,15 +73,11 @@ export class JrwaImportService {
 
     let records: any[]
     try {
-      records = parseCsv(csvData, {
-        columns: true,
-        skip_empty_lines: true,
-        trim: true,
-      })
+      records = this.parseCsvToRecords(csvData)
     } catch (error) {
       return {
         valid: false,
-        errors: [`CSV parse error: ${error instanceof Error ? error.message : 'Unknown error'}`],
+        errors: [error instanceof Error ? error.message : 'CSV parse error'],
       }
     }
 
@@ -112,33 +103,20 @@ export class JrwaImportService {
           codes.add(validated.code)
         }
 
-        const parsedRow: ParsedCsvRow = {
-          code: validated.code,
-          name: validated.name,
-          description: validated.description,
-          parentCode: validated.parentCode,
-        }
+        const parsedRow = this.transformRow(validated)
 
         if (validated.retentionYears) {
           const years = parseInt(validated.retentionYears, 10)
-          if (!isNaN(years) && years >= 0) {
-            parsedRow.retentionYears = years
-          } else {
+          if (isNaN(years) || years < 0) {
             warnings.push(`Row ${rowNum}: Invalid retentionYears "${validated.retentionYears}", ignoring`)
           }
         }
 
         if (validated.retentionCategory) {
           const category = validated.retentionCategory.trim()
-          if (['A', 'B', 'BE', 'Bc'].includes(category)) {
-            parsedRow.retentionCategory = category as 'A' | 'B' | 'BE' | 'Bc'
-          } else {
+          if (!['A', 'B', 'BE', 'Bc'].includes(category)) {
             warnings.push(`Row ${rowNum}: Invalid retentionCategory "${category}", ignoring`)
           }
-        }
-
-        if (validated.archivalPackageVariant) {
-          parsedRow.archivalPackageVariant = validated.archivalPackageVariant
         }
 
         validatedRows.push(parsedRow)
@@ -177,7 +155,11 @@ export class JrwaImportService {
       })
     }
 
-    const parsedRows = this.parseValidatedCsv(csvData)
+    const records = this.parseCsvToRecords(csvData)
+    const parsedRows = records.map(row => {
+      const validated = jrwaImportCsvRowSchema.parse(row)
+      return this.transformRow(validated)
+    })
 
     return this.em.transactional(async (em) => {
       const codeToIdMap = new Map<string, string>()
