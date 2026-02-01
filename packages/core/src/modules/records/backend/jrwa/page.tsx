@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { DataTable } from '@open-mercato/ui/backend/DataTable'
-import type { FilterDef } from '@open-mercato/ui/backend/FilterBar'
+import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterBar'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { deleteCrud } from '@open-mercato/ui/backend/utils/crud'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
@@ -37,6 +37,48 @@ const PAGE_SIZE = 20
 export default function JrwaClassesPage() {
   const t = useT()
   const router = useRouter()
+  const [data, setData] = React.useState<JRWAClassRow[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
+  const [filterValues, setFilterValues] = React.useState<FilterValues>({})
+  const [searchValue, setSearchValue] = React.useState('')
+  const [refreshKey, setRefreshKey] = React.useState(0)
+
+  React.useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true)
+      setError(null)
+
+      try {
+        const params = new URLSearchParams()
+        params.set('pageSize', String(PAGE_SIZE))
+
+        if (filterValues.version) {
+          params.set('version', String(filterValues.version))
+        }
+        if (filterValues.isActive) {
+          params.set('isActive', String(filterValues.isActive))
+        }
+        if (searchValue) {
+          params.set('search', searchValue)
+        }
+
+        const response = await apiCall<JRWAClassesResponse>(`/api/records/jrwa-classes?${params}`)
+        
+        if (!response.ok || !response.result) {
+          throw new Error('Failed to fetch JRWA classes')
+        }
+
+        setData(response.result.items ?? [])
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load data')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [filterValues, searchValue, refreshKey])
 
   const filters: FilterDef[] = [
     {
@@ -52,12 +94,6 @@ export default function JrwaClassesPage() {
         { value: 'true', label: t('common.yes', 'Yes') },
         { value: 'false', label: t('common.no', 'No') },
       ],
-    },
-    {
-      id: 'search',
-      label: t('records.jrwa.filter.search', 'Search'),
-      type: 'text',
-      placeholder: t('records.jrwa.filter.search', 'Search by code or name'),
     },
   ]
 
@@ -128,7 +164,7 @@ export default function JrwaClassesPage() {
                 try {
                   await deleteCrud(`/api/records/jrwa-classes`, row.original.id)
                   flash(t('records.jrwa.success.deleted', 'Deleted successfully'), 'success')
-                  router.refresh()
+                  setRefreshKey(prev => prev + 1)
                 } catch {
                   flash(t('records.jrwa.error.delete', 'Failed to delete'), 'error')
                 }
@@ -140,45 +176,23 @@ export default function JrwaClassesPage() {
     },
   ]
 
-  const fetchData = async (page: number, pageSize: number, filters: Record<string, unknown>) => {
-    const params = new URLSearchParams()
-    params.set('page', String(page))
-    params.set('pageSize', String(pageSize))
-
-    if (filters.version) {
-      params.set('version', String(filters.version))
-    }
-    if (filters.isActive) {
-      params.set('isActive', String(filters.isActive))
-    }
-    if (filters.search) {
-      params.set('search', String(filters.search))
-    }
-
-    const response = await apiCall<JRWAClassesResponse>(`/api/records/jrwa-classes?${params}`)
-    
-    if (!response.ok || !response.result) {
-      throw new Error('Failed to fetch JRWA classes')
-    }
-
-    return {
-      items: response.result.items ?? [],
-      total: response.result.total ?? 0,
-      totalPages: response.result.totalPages ?? 0,
-    }
-  }
-
   return (
     <FeatureGuard id="records_jrwa_classes">
       <Page>
         <PageBody>
           <DataTable
             title={t('records.jrwa.page.title', 'JRWA Classes')}
-            description={t('records.jrwa.page.description', 'Manage JRWA classification system')}
             columns={columns}
-            fetchData={fetchData}
+            data={data}
+            isLoading={loading}
+            error={error}
             filters={filters}
-            pageSize={PAGE_SIZE}
+            filterValues={filterValues}
+            onFiltersApply={(values) => setFilterValues(values)}
+            onFiltersClear={() => setFilterValues({})}
+            searchValue={searchValue}
+            onSearchChange={setSearchValue}
+            searchPlaceholder={t('records.jrwa.filter.search', 'Search by code or name')}
             actions={
               <div className="flex gap-2">
                 <Button asChild variant="outline">
