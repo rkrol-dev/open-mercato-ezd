@@ -71,7 +71,13 @@ await esbuild.build({
 
 // Make bin.js executable with shebang
 const binPath = join(__dirname, 'dist/bin.js')
-const binContent = readFileSync(binPath, 'utf-8')
+let binContent = readFileSync(binPath, 'utf-8')
+// Avoid duplicating the hashbang on rebuilds (Node only strips the first line)
+// Also handle files that may have accumulated multiple hashbangs from previous runs.
+if (binContent.charCodeAt(0) === 0xfeff) {
+  binContent = binContent.slice(1)
+}
+binContent = binContent.replace(/^(?:#!.*\r?\n)+/g, '')
 writeFileSync(binPath, '#!/usr/bin/env node\n' + binContent)
 chmodSync(binPath, 0o755)
 

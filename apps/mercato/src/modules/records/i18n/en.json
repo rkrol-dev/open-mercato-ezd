@@ -1,0 +1,32 @@
+{
+  "records": {
+    "nav": {
+      "group": "Records"
+    },
+    "incomingShipments": {
+      "page": {
+        "title": "Incoming Shipments"
+      },
+      "create": {
+        "title": "Create Incoming Shipment"
+      },
+      "details": {
+        "title": "Incoming Shipment Details"
+      }
+    },
+    "jrwaClasses": {
+      "page": {
+        "title": "JRWA Classes"
+      },
+      "create": {
+        "title": "Create JRWA Class"
+      },
+      "import": {
+        "title": "Import JRWA Classes"
+      },
+      "details": {
+        "title": "JRWA Class Details"
+      }
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "dev:app",
+			"type": "shell",
+			"command": "corepack",
+			"args": [
+				"yarn",
+				"dev:app"
+			],
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}

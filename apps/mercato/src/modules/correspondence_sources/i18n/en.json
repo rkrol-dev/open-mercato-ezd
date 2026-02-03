@@ -1,0 +1,33 @@
+{
+  "correspondenceSources": {
+    "nav": {
+      "group": "Integrations"
+    },
+    "testing": {
+      "nav": {
+        "group": "Testing"
+      }
+    },
+    "sources": {
+      "page": {
+        "title": "Correspondence Sources"
+      },
+      "create": {
+        "title": "Create Source"
+      },
+      "details": {
+        "title": "Source Details"
+      }
+    },
+    "syncLogs": {
+      "page": {
+        "title": "Sync Logs"
+      }
+    },
+    "mock": {
+      "page": {
+        "title": "eDoreczenia Mock"
+      }
+    }
+  }
+}
