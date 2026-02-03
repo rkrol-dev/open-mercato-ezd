@@ -6,7 +6,12 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-const entryPoints = await glob(join(__dirname, 'src/**/*.ts'), { ignore: ['**/__tests__/**', '**/*.test.ts'] })
+// NOTE: On Windows, glob patterns containing backslashes can behave like escapes.
+// Use project-relative glob patterns (like other packages) so builds are cross-platform.
+const entryPoints = await glob('src/**/*.ts', {
+  cwd: __dirname,
+  ignore: ['**/__tests__/**', '**/*.test.ts'],
+})
 
 // Plugin to add .js extension to relative imports
 const addJsExtension = {
@@ -14,10 +19,11 @@ const addJsExtension = {
   setup(build) {
     build.onEnd(async (result) => {
       if (result.errors.length > 0) return
-      const outputFiles = await glob(join(__dirname, 'dist/**/*.js'))
+      const outputFiles = await glob('dist/**/*.js', { cwd: __dirname })
       for (const file of outputFiles) {
-        const fileDir = dirname(file)
-        let content = readFileSync(file, 'utf-8')
+        const absoluteFile = join(__dirname, file)
+        const fileDir = dirname(absoluteFile)
+        let content = readFileSync(absoluteFile, 'utf-8')
         // Add .js to relative imports that don't have an extension
         content = content.replace(
           /from\s+["'](\.[^"']+)["']/g,
@@ -49,7 +55,7 @@ const addJsExtension = {
             return `import("${path}.js")`
           }
         )
-        writeFileSync(file, content)
+        writeFileSync(absoluteFile, content)
       }
     })
   }

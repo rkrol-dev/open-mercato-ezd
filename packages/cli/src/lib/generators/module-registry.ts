@@ -531,7 +531,7 @@ export async function generateModuleRegistry(options: ModuleRegistryOptions): Pr
         const routePath = '/' + reqSegs.filter(Boolean).join('/')
         const sourceFile = fromApp ? appFile : path.join(apiPkg, ...segs, 'route.ts')
         const hasOpenApi = await moduleHasExport(sourceFile, 'openApi')
-        const docsPart = hasOpenApi ? `, docs: ${importName}.openApi` : ''
+        const docsPart = hasOpenApi ? `, docs: (${importName} as any).openApi` : ''
         imports.push(`import * as ${importName} from '${importPath}'`)
         apis.push(`{ path: '${routePath}', metadata: (${importName} as any).metadata, handlers: ${importName} as any${docsPart} }`)
       }
@@ -568,7 +568,7 @@ export async function generateModuleRegistry(options: ModuleRegistryOptions): Pr
         const pkgFile = path.join(apiPkg, ...fullSegs) + '.ts'
         const sourceFile = fromApp ? appFile : pkgFile
         const hasOpenApi = await moduleHasExport(sourceFile, 'openApi')
-        const docsPart = hasOpenApi ? `, docs: ${importName}.openApi` : ''
+        const docsPart = hasOpenApi ? `, docs: (${importName} as any).openApi` : ''
         imports.push(`import * as ${importName} from '${importPath}'`)
         apis.push(`{ path: '${routePath}', metadata: (${importName} as any).metadata, handlers: ${importName} as any${docsPart} }`)
       }
@@ -605,7 +605,7 @@ export async function generateModuleRegistry(options: ModuleRegistryOptions): Pr
           const metaName = `RM${importId++}_${toVar(modId)}_${toVar(method)}_${toVar(fullSegs.join('_'))}`
           const sourceFile = path.join(methodDir, ...segs, file)
           const hasOpenApi = await moduleHasExport(sourceFile, 'openApi')
-          const docsPart = hasOpenApi ? `, docs: ${metaName}.openApi` : ''
+          const docsPart = hasOpenApi ? `, docs: (${metaName} as any).openApi` : ''
           imports.push(`import ${importName}, * as ${metaName} from '${importPath}'`)
           apis.push(`{ method: '${method}', path: '${routePath}', handler: ${importName}, metadata: ${metaName}.metadata${docsPart} }`)
         }

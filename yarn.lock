@@ -11439,6 +11439,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"csv-parse@npm:^6.1.0":
+  version: 6.1.0
+  resolution: "csv-parse@npm:6.1.0"
+  checksum: 10/607d92611435fdfb7631242644a2582bfb218fad8c6c6d6416db31647c2e63a3110f16c9837de6baaa3edf318212765cfc6e72d672d99690fd7f565d6c93d6f4
+  languageName: node
+  linkType: hard
+
 "cytoscape-cose-bilkent@npm:^4.1.0":
   version: 4.1.0
   resolution: "cytoscape-cose-bilkent@npm:4.1.0"
@@ -19344,6 +19351,7 @@ __metadata:
     bcryptjs: "npm:^3.0.3"
     class-variance-authority: "npm:^0.7.1"
     clsx: "npm:^2.1.1"
+    csv-parse: "npm:^6.1.0"
     date-fns: "npm:^4.1.0"
     date-fns-tz: "npm:^3.2.0"
     dotenv: "npm:^17.2.3"

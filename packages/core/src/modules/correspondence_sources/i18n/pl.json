@@ -1,0 +1,114 @@
+{
+  "correspondenceSources.nav.sources": "Źródła",
+  "correspondenceSources.nav.syncLogs": "Dzienniki Synchronizacji",
+  "correspondenceSources.nav.mockUI": "Mock UI",
+  
+  "correspondenceSources.sources.page.title": "Źródła Korespondencji",
+  "correspondenceSources.sources.page.description": "Zarządzaj źródłami integracji eDoreczenia i innych systemów korespondencji",
+  "correspondenceSources.sources.create.title": "Utwórz Źródło Korespondencji",
+  "correspondenceSources.sources.edit.title": "Edytuj Źródło Korespondencji",
+  
+  "correspondenceSources.sources.field.name": "Nazwa",
+  "correspondenceSources.sources.field.sourceType": "Typ Źródła",
+  "correspondenceSources.sources.field.isActive": "Aktywne",
+  "correspondenceSources.sources.field.lastSyncDate": "Data Ostatniej Synchronizacji",
+  "correspondenceSources.sources.field.defaultReceivingOrgUnitId": "Domyślna Jednostka Organizacyjna",
+  "correspondenceSources.sources.field.defaultReceivingOrgUnitSymbol": "Symbol Jednostki Organizacyjnej",
+  
+  "correspondenceSources.sources.section.basicInfo": "Informacje Podstawowe",
+  "correspondenceSources.sources.section.configuration": "Konfiguracja",
+  "correspondenceSources.sources.section.defaultOrgUnit": "Domyślna Jednostka Organizacyjna",
+  "correspondenceSources.sources.section.syncInfo": "Informacje o Synchronizacji",
+  
+  "correspondenceSources.sources.sourceType.edoreczenia-mock": "eDoreczenia (Mock)",
+  "correspondenceSources.sources.sourceType.epuap": "ePUAP",
+  "correspondenceSources.sources.sourceType.email": "Email (IMAP)",
+  
+  "correspondenceSources.sources.config.mockEndpoint": "Adres Endpoint Mock",
+  "correspondenceSources.sources.config.autoFetchEnabled": "Automatyczne Pobieranie",
+  "correspondenceSources.sources.config.fetchIntervalMinutes": "Interwał Pobierania (Minuty)",
+  "correspondenceSources.sources.config.endpointUrl": "URL Endpoint",
+  "correspondenceSources.sources.config.clientId": "ID Klienta",
+  "correspondenceSources.sources.config.clientSecret": "Sekret Klienta",
+  "correspondenceSources.sources.config.certificatePath": "Ścieżka Certyfikatu",
+  "correspondenceSources.sources.config.imapHost": "Host IMAP",
+  "correspondenceSources.sources.config.imapPort": "Port IMAP",
+  "correspondenceSources.sources.config.imapUsername": "Nazwa Użytkownika IMAP",
+  "correspondenceSources.sources.config.imapPassword": "Hasło IMAP",
+  "correspondenceSources.sources.config.imapSecure": "IMAP Bezpieczny (SSL/TLS)",
+  "correspondenceSources.sources.config.folderName": "Nazwa Folderu",
+  
+  "correspondenceSources.sources.status.active": "Aktywny",
+  "correspondenceSources.sources.status.inactive": "Nieaktywny",
+  
+  "correspondenceSources.sources.action.create": "Utwórz Źródło",
+  "correspondenceSources.sources.action.edit": "Edytuj",
+  "correspondenceSources.sources.action.view": "Podgląd",
+  "correspondenceSources.sources.action.delete": "Usuń",
+  "correspondenceSources.sources.action.save": "Zapisz Źródło",
+  "correspondenceSources.sources.action.sync": "Synchronizuj Teraz",
+  "correspondenceSources.sources.action.testConnection": "Testuj Połączenie",
+  
+  "correspondenceSources.sources.filter.sourceType": "Typ Źródła",
+  "correspondenceSources.sources.filter.isActive": "Status",
+  "correspondenceSources.sources.filter.search": "Szukaj po nazwie",
+  
+  "correspondenceSources.sources.confirm.delete": "Czy na pewno chcesz usunąć to źródło?",
+  "correspondenceSources.sources.confirm.sync": "Czy na pewno chcesz zsynchronizować to źródło?",
+  
+  "correspondenceSources.sources.success.created": "Źródło utworzone pomyślnie",
+  "correspondenceSources.sources.success.updated": "Źródło zaktualizowane pomyślnie",
+  "correspondenceSources.sources.success.deleted": "Źródło usunięte pomyślnie",
+  "correspondenceSources.sources.success.synced": "Synchronizacja zakończona pomyślnie",
+  
+  "correspondenceSources.sources.error.create": "Nie udało się utworzyć źródła",
+  "correspondenceSources.sources.error.update": "Nie udało się zaktualizować źródła",
+  "correspondenceSources.sources.error.delete": "Nie udało się usunąć źródła",
+  "correspondenceSources.sources.error.load": "Nie udało się wczytać źródła",
+  "correspondenceSources.sources.error.sync": "Nie udało się zsynchronizować źródła",
+  "correspondenceSources.sources.error.invalidConfig": "Nieprawidłowa konfiguracja",
+  
+  "correspondenceSources.syncLogs.page.title": "Dzienniki Synchronizacji",
+  "correspondenceSources.syncLogs.page.description": "Podgląd historii i wyników synchronizacji",
+  
+  "correspondenceSources.syncLogs.field.sourceName": "Nazwa Źródła",
+  "correspondenceSources.syncLogs.field.startedAt": "Rozpoczęto",
+  "correspondenceSources.syncLogs.field.completedAt": "Zakończono",
+  "correspondenceSources.syncLogs.field.status": "Status",
+  "correspondenceSources.syncLogs.field.itemsFetched": "Pobranych Elementów",
+  "correspondenceSources.syncLogs.field.itemsCreated": "Utworzonych Elementów",
+  "correspondenceSources.syncLogs.field.itemsFailed": "Nieudanych Elementów",
+  "correspondenceSources.syncLogs.field.errorMessage": "Komunikat Błędu",
+  
+  "correspondenceSources.syncLogs.status.in_progress": "W Trakcie",
+  "correspondenceSources.syncLogs.status.completed": "Zakończono",
+  "correspondenceSources.syncLogs.status.failed": "Błąd",
+  
+  "correspondenceSources.syncLogs.filter.sourceId": "Źródło",
+  "correspondenceSources.syncLogs.filter.status": "Status",
+  "correspondenceSources.syncLogs.filter.dateRange": "Zakres Dat",
+  
+  "correspondenceSources.syncLogs.action.viewDetails": "Zobacz Szczegóły",
+  
+  "correspondenceSources.syncLogs.error.load": "Nie udało się wczytać dzienników synchronizacji",
+  
+  "correspondenceSources.sync.modal.title": "Wyniki Synchronizacji",
+  "correspondenceSources.sync.modal.itemsFetched": "Pobrano Elementów",
+  "correspondenceSources.sync.modal.itemsCreated": "Utworzono Elementów",
+  "correspondenceSources.sync.modal.itemsFailed": "Nieudanych Elementów",
+  "correspondenceSources.sync.modal.status": "Status",
+  "correspondenceSources.sync.modal.close": "Zamknij",
+  
+  "correspondenceSources.mock.page.title": "eDoreczenia Mock UI",
+  "correspondenceSources.mock.page.description": "Testuj synchronizację korespondencji z danymi testowymi",
+  "correspondenceSources.mock.action.addItem": "Dodaj Element Testowy",
+  "correspondenceSources.mock.action.clearItems": "Wyczyść Wszystkie Elementy",
+  "correspondenceSources.mock.field.subject": "Temat",
+  "correspondenceSources.mock.field.senderName": "Nazwa Nadawcy",
+  "correspondenceSources.mock.field.senderEmail": "Email Nadawcy",
+  "correspondenceSources.mock.field.postedDate": "Data Nadania",
+  "correspondenceSources.mock.success.added": "Element testowy dodany pomyślnie",
+  "correspondenceSources.mock.success.cleared": "Elementy testowe wyczyszczone pomyślnie",
+  "correspondenceSources.mock.error.add": "Nie udało się dodać elementu testowego",
+  "correspondenceSources.mock.error.clear": "Nie udało się wyczyścić elementów testowych"
+}

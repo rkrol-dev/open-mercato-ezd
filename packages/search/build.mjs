@@ -79,14 +79,16 @@ await esbuild.build({
 })
 
 // Copy JSON files from src to dist (esbuild doesn't handle non-entry JSON files)
-const jsonFiles = await glob(join(__dirname, 'src/**/*.json'), {
+const jsonFiles = await glob('src/**/*.json', {
+  cwd: __dirname,
   ignore: ['**/node_modules/**']
 })
 for (const jsonFile of jsonFiles) {
-  const relativePath = relative(join(__dirname, 'src'), jsonFile)
+  const absoluteJsonFile = join(__dirname, jsonFile)
+  const relativePath = relative(join(__dirname, 'src'), absoluteJsonFile)
   const destPath = join(outdir, relativePath)
   mkdirSync(dirname(destPath), { recursive: true })
-  copyFileSync(jsonFile, destPath)
+  copyFileSync(absoluteJsonFile, destPath)
 }
 
 console.log('search built successfully')

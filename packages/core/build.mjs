@@ -6,13 +6,15 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-const srcEntryPoints = await glob(join(__dirname, 'src/**/*.{ts,tsx}'), {
+const srcEntryPoints = (await glob('src/**/*.{ts,tsx}', {
+  cwd: __dirname,
   ignore: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx']
-})
+})).map((p) => join(__dirname, p))
 
-const generatedEntryPoints = await glob(join(__dirname, 'generated/**/*.{ts,tsx}'), {
+const generatedEntryPoints = (await glob('generated/**/*.{ts,tsx}', {
+  cwd: __dirname,
   ignore: ['**/__tests__/**', '**/*.test.ts', '**/*.test.tsx']
-})
+})).map((p) => join(__dirname, p))
 
 const entryPoints = srcEntryPoints
 
@@ -22,11 +24,12 @@ const addJsExtension = {
   setup(build) {
     build.onEnd(async (result) => {
       if (result.errors.length > 0) return
-      const outputFiles = await glob(join(__dirname, 'dist/**/*.js'))
+      const outputFiles = await glob('dist/**/*.js', { cwd: __dirname })
       const distDir = join(__dirname, 'dist')
       for (const file of outputFiles) {
-        const fileDir = dirname(file)
-        let content = readFileSync(file, 'utf-8')
+        const absoluteFile = join(__dirname, file)
+        const fileDir = dirname(absoluteFile)
+        let content = readFileSync(absoluteFile, 'utf-8')
 
         // Helper to resolve #generated/* paths
         const resolveGeneratedPath = (importPath) => {
@@ -48,6 +51,7 @@ const addJsExtension = {
           (match, importPath) => {
             const targetPath = resolveGeneratedPath(importPath)
             let relativePath = relative(fileDir, targetPath)
+            relativePath = relativePath.replace(/\\/g, '/')
             if (!relativePath.startsWith('.')) {
               relativePath = './' + relativePath
             }
@@ -61,6 +65,7 @@ const addJsExtension = {
           (match, importPath) => {
             const targetPath = resolveGeneratedPath(importPath)
             let relativePath = relative(fileDir, targetPath)
+            relativePath = relativePath.replace(/\\/g, '/')
             if (!relativePath.startsWith('.')) {
               relativePath = './' + relativePath
             }
@@ -106,7 +111,7 @@ const addJsExtension = {
             return `import "${path}.js";`
           }
         )
-        writeFileSync(file, content)
+        writeFileSync(absoluteFile, content)
       }
     })
   }
@@ -127,14 +132,16 @@ await esbuild.build({
 })
 
 // Copy JSON files from src to dist (esbuild doesn't handle non-entry JSON files)
-const jsonFiles = await glob(join(__dirname, 'src/**/*.json'), {
+const jsonFiles = await glob('src/**/*.json', {
+  cwd: __dirname,
   ignore: ['**/node_modules/**', '**/i18n/**'] // i18n files are handled differently
 })
 for (const jsonFile of jsonFiles) {
-  const relativePath = relative(join(__dirname, 'src'), jsonFile)
+  const absoluteJsonFile = join(__dirname, jsonFile)
+  const relativePath = relative(join(__dirname, 'src'), absoluteJsonFile)
   const destPath = join(outdir, relativePath)
   mkdirSync(dirname(destPath), { recursive: true })
-  copyFileSync(jsonFile, destPath)
+  copyFileSync(absoluteJsonFile, destPath)
 }
 
 // Build generated files to dist/generated

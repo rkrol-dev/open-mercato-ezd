@@ -37,7 +37,13 @@ async function compileAndImport(tsPath: string): Promise<Record<string, unknown>
       setup(build) {
         // Resolve @/ alias to app root
         build.onResolve({ filter: /^@\// }, (args) => {
-          const resolved = path.join(appRoot, args.path.slice(2))
+          // Mirror apps/mercato/tsconfig.json paths:
+          //   @/*           -> ./src/*
+          //   @/.mercato/*  -> ./.mercato/*
+          const relative = args.path.slice(2)
+          const resolved = relative.startsWith('.mercato/')
+            ? path.join(appRoot, relative)
+            : path.join(appRoot, 'src', relative)
           // Try with .ts extension if base path doesn't exist
           if (!fs.existsSync(resolved) && fs.existsSync(resolved + '.ts')) {
             return { path: resolved + '.ts' }
@@ -57,6 +63,18 @@ async function compileAndImport(tsPath: string): Promise<Record<string, unknown>
       setup(build) {
         // Mark all package imports as external EXCEPT JSON files
         build.onResolve({ filter: /^[^./]/ }, (args) => {
+          // Never mark entry points as external (esbuild error on Windows when
+          // entryPoints are absolute paths like C:\\...)
+          if (args.kind === 'entry-point') {
+            return null
+          }
+
+          // Never treat absolute paths (Windows drive letters, UNC paths, etc.)
+          // as package imports.
+          if (path.isAbsolute(args.path)) {
+            return null
+          }
+
           // If it's a JSON file, let esbuild bundle it
           if (args.path.endsWith('.json')) {
             return null // Let esbuild handle it
