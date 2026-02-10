@@ -155,6 +155,7 @@ To była **celowa rozbieżność między Phase 1 i Phase 2**:
 - ✅ correspondence_sources → records: działa
 - ✅ records → attachments: wzorzec określony
 - ✅ records → directory: wzorzec określony
+- ✅ integracje z systemami kancelaryjnymi zewnętrznymi (EZD RP/eSODOK) opisane przez pola `externalRpwNumber` i `externalDocumentIds`
 
 ---
 

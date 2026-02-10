@@ -32,6 +32,8 @@ W MVP nie modelujemy kancelarii jako osobnej encji w module `records`.
 | `status` | enum | tak | `draft` / `registered` (MVP). Planowane: `archived` |
 | `attachmentIds` | uuid[] | nie | **Phase 1**: załączniki bezpośrednio z modułu `attachments` (domyślnie: `[]`). **Phase 2 (planowane)**: pole zostanie przemianowane na `documentIds` (relacja do `records.documents`) |
 | `rpwNumber` | string | tak*** | Numer RPW nadawany w akcji „Zarejestruj wpływ”; w `draft` może być pusty |
+| `externalRpwNumber` | string | nie | Obcy numer RPW z systemu kancelaryjnego (np. EZD RP/eSODOK) przekazywany przy imporcie dla synchronizacji zwrotnej |
+| `externalDocumentIds` | string[] | nie | Techniczne identyfikatory dokumentów/plików w systemie źródłowym (np. GUID/ID pliku); domyślnie `[]` |
 | `rpwSequence` | number | nie | Pozycja w sekwencji (wewnętrzna; opcjonalna) |
 | `postedAt` | date | nie | data nadania |
 | `senderReference` | string | nie | numer nadawczy |

@@ -6,6 +6,7 @@ sidebar_position: 10
 # Analiza wdrożeniowa: Records (Przesyłka wpływająca / RPW / JRWA)
 
 ## Changelog
+- **2026-02-10 (v8)**: Dodano scenariusz pobierania przesyłek zewnętrznych z systemów kancelaryjnych (EZD RP/eSODOK) oraz pola `external_rpw_number` i `external_document_ids` do obsługi synchronizacji zwrotnej.
 - **2026-01-26 (v7)**: Dodano obsługę feature toggles dla wszystkich modułów (records, correspondence_sources). Wprowadzono mechanizm włączania/wyłączania funkcjonalności na poziomie konfiguracji globalnej i per-tenant. Zaktualizowano dokumentację użytkownika o instrukcje aktywacji modułów.
 - **2026-01-26 (v6)**: Rozszerzono sekcję integracji z `correspondence_sources` o kluczowe ustalenia biznesowe: automatyczne tworzenie przesyłek w draft, mapowanie nadawców z normalizacją identyfikatorów, obsługa załączników jako records_documents, dwutorowa synchronizacja (manual + scheduled co 15 min), automatyczne wysyłanie UPD.
 - **2026-01-26 (v5)**: Dodano sekcję integracji z modułem `correspondence_sources` w "Stan implementacji". Zlinkowano dokumentację integracji eDoreczenia. Uspójniono opis pola `delivery_method` z implementacją automatycznego pobierania korespondencji.
@@ -103,10 +104,12 @@ Minimalny zestaw pól (MVP):
 - `sender_display_name: text|null` – nazwa nadawcy (wymagane jeśli brak `sender_id`)
 - `sender_anonymous: boolean` – czy nadawca anonimowy (default: `false`)
   - **Zasada**: wymagane jest `sender_id` LUB `sender_display_name` (co najmniej jedno)
-- `delivery_method: text` – typ/sposób wpływu (wymagane; np. papier/ePUAP/e-mail). **Przy automatycznym pobieraniu korespondencji** wartość ustawiana automatycznie na typ źródła (np. "edoreczenia-mock", "epuap") przez moduł `correspondence_sources`. Zobacz: [Integracja eDoreczenia](/docs/integracje/edoreczenia/implementation#integration-with-records-module)
+- `delivery_method: text` – typ/sposób wpływu (wymagane; np. papier/ePUAP/e-mail). **Przy automatycznym pobieraniu korespondencji** wartość ustawiana automatycznie na typ źródła (np. "edoreczenia-mock", "epuap", "ezdrp", "esodok") przez moduł `correspondence_sources`. Zobacz: [Integracja eDoreczenia](/docs/integracje/edoreczenia/implementation#integration-with-records-module)
 - `status: text` – `draft` | `registered` (wymagane; default: `draft`)
 - `received_at: timestamptz|null` – data wpływu (wymagane najpóźniej na etapie rejestracji)
 - `rpw_number: text|null` – numer RPW (nullable w `draft`, ustawiany wyłącznie w akcji „Zarejestruj wpływ”)
+- `external_rpw_number: text|null` – obcy numer RPW z systemu kancelaryjnego (np. EZD RP/eSODOK), przekazywany przy imporcie dla synchronizacji zwrotnej
+- `external_document_ids: text[]` – techniczne identyfikatory dokumentów/plików w systemie źródłowym (np. GUID/ID pliku); domyślnie `[]`
 - `attachment_ids: uuid[]` – **powiązane załączniki** (relacja do `attachments`; default: `[]`)
   - **Phase 1 (obecna implementacja)**: Przesyłka bezpośrednio referencjonuje załączniki z modułu `attachments`
   - **Phase 2 (planowana)**: Model zostanie rozszerzony do `document_ids` (relacja do `records.documents`, które same mają `attachment_ids`)
@@ -115,6 +118,11 @@ Minimalny zestaw pól (MVP):
   - W Phase 2: wymagane będzie co najmniej 1 dokument (decyzja Q2-SHIP-001, Q2-SHIP-002)
 - `is_active: boolean`
 - `created_at`, `updated_at`, `deleted_at`
+
+**Integracja z zewnętrznym systemem kancelaryjnym (EZD RP/eSODOK)**:
+- Przesyłka może zostać pobrana już po rejestracji w systemie źródłowym, dlatego `external_rpw_number` przechowuje numer RPW z tamtego systemu.
+- `external_document_ids` zapisuje techniczne identyfikatory dokumentów/plików źródłowych, aby umożliwić późniejszą synchronizację zwrotną.
+- W tych przypadkach `delivery_method` wskazuje system źródłowy (np. `ezdrp`, `esodok`).
 
 Proponowane indeksy (docelowo):
 - `(tenant_id, organization_id)`

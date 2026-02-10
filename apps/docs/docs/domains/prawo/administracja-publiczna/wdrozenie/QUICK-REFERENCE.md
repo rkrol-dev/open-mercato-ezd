@@ -1,6 +1,6 @@
 # Quick Reference: Records Module Implementation
 
-**Ostatnia aktualizacja:** 2026-01-26
+**Ostatnia aktualizacja:** 2026-02-10
 
 ## 🎯 Status implementacji
 
@@ -103,6 +103,7 @@ Sekwencja resetuje się rocznie automatycznie.
 - `rpwNumber` - nadawane przez akcję `register`
 - `rpwSequence` - numeracja wewnętrzna
 - `status` - zmieniane przez workflow
+- `externalRpwNumber`, `externalDocumentIds` - ustawiane przy imporcie z systemów kancelaryjnych (EZD RP/eSODOK)
 
 ### RecordsJrwaClass
 
