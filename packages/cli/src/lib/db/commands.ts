@@ -1,6 +1,7 @@
 import path from 'node:path'
 import fs from 'node:fs'
-import { MikroORM, type Logger } from '@mikro-orm/core'
+import { pathToFileURL } from 'node:url'
+import { MikroORM, type Logger, type UmzugMigration } from '@mikro-orm/core'
 import { Migrator } from '@mikro-orm/migrations'
 import { PostgreSqlDriver } from '@mikro-orm/postgresql'
 import type { PackageResolver, ModuleEntry } from '../resolver'
@@ -40,6 +41,26 @@ function getClientUrl(): string {
   const url = process.env.DATABASE_URL
   if (!url) throw new Error('DATABASE_URL is not set')
   return url
+}
+
+function createWindowsSafeDynamicImportProvider() {
+  return async (specifier: string) => {
+    if (typeof specifier !== 'string') {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return import(specifier as any)
+    }
+
+    const trimmed = specifier.trim()
+    const importSpec =
+      trimmed.startsWith('file:') || trimmed.startsWith('data:') || trimmed.startsWith('node:')
+        ? trimmed
+        : path.isAbsolute(trimmed)
+          ? pathToFileURL(trimmed).href
+          : trimmed
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return import(importSpec as any)
+  }
 }
 
 function sortModules(mods: ModuleEntry[]): ModuleEntry[] {
@@ -87,7 +108,7 @@ async function loadModuleEntities(entry: ModuleEntry, resolver: PackageResolver)
         const fromApp = base.startsWith(roots.appBase)
         // For @app modules, use file:// URL since @/ alias doesn't work in Node.js runtime
         const importPath = (isAppModule && fromApp)
-          ? `file://${p.replace(/\.ts$/, '.js')}`
+          ? pathToFileURL(p.replace(/\.ts$/, '.js')).href
           : `${fromApp ? imps.appBase : imps.pkgBase}/${sub}/${f.replace(/\.ts$/, '')}`
         try {
           const mod = await import(importPath)
@@ -157,6 +178,9 @@ export async function dbGenerate(resolver: PackageResolver, options: DbOptions =
       driver: PostgreSqlDriver,
       clientUrl: getClientUrl(),
       loggerFactory: () => createMinimalLogger(),
+      // MikroORM uses dynamic import for migrations/entities in ESM mode.
+      // Node on Windows requires absolute paths to be passed as file:// URLs.
+      dynamicImportProvider: createWindowsSafeDynamicImportProvider(),
       entities,
       migrations: {
         path: migrationsPath,
@@ -174,7 +198,7 @@ export async function dbGenerate(resolver: PackageResolver, options: DbOptions =
         acquireTimeoutMillis: 60000,
         destroyTimeoutMillis: 30000,
       },
-    })
+    } as any)
 
     const migrator = orm.getMigrator() as Migrator
     const diff = await migrator.createMigration()
@@ -213,80 +237,130 @@ export async function dbGenerate(resolver: PackageResolver, options: DbOptions =
 export async function dbMigrate(resolver: PackageResolver, options: DbOptions = {}): Promise<void> {
   const modules = resolver.loadEnabledModules()
   const ordered = sortModules(modules)
+
+  // Migrations are stored per module, but some migrations can affect tables
+  // created by other modules (e.g. FK/constraint renames). Applying migrations
+  // strictly in module-id order can break on a fresh DB.
+  //
+  // Apply ALL pending migrations globally in timestamp order (MigrationYYYYMMDDHHMMSS)
+  // while still recording execution in each module's migration table.
   const results: string[] = []
+  const perModulePendingCount = new Map<string, number>()
+  const contexts: Array<{ modId: string; orm: MikroORM<PostgreSqlDriver>; migrator: Migrator }> = []
+  const pendingAll: Array<{
+    ts: string
+    modId: string
+    name: string
+    migrator: Migrator
+  }> = []
 
-  for (const entry of ordered) {
-    const modId = entry.id
-    const sanitizedModId = sanitizeModuleId(modId)
-    const entities = await loadModuleEntities(entry, resolver)
+  try {
+    for (const entry of ordered) {
+      const modId = entry.id
+      const sanitizedModId = sanitizeModuleId(modId)
+      const entities = await loadModuleEntities(entry, resolver)
 
-    const migrationsPath = getMigrationsPath(entry, resolver)
+      const migrationsPath = getMigrationsPath(entry, resolver)
 
-    // Skip if no entities AND no migrations directory exists
-    // (allows @app modules to run migrations even if entities can't be dynamically imported)
-    if (!entities.length && !fs.existsSync(migrationsPath)) continue
-    fs.mkdirSync(migrationsPath, { recursive: true })
+      // Skip if no entities AND no migrations directory exists
+      // (allows @app modules to run migrations even if entities can't be dynamically imported)
+      if (!entities.length && !fs.existsSync(migrationsPath)) continue
+      fs.mkdirSync(migrationsPath, { recursive: true })
 
-    const tableName = `mikro_orm_migrations_${sanitizedModId}`
-    validateTableName(tableName)
+      const tableName = `mikro_orm_migrations_${sanitizedModId}`
+      validateTableName(tableName)
 
-    // For @app modules, entities may be empty since TypeScript files can't be imported at runtime
-    // Use discovery.warnWhenNoEntities: false to allow running migrations without entities
-    const orm = await MikroORM.init<PostgreSqlDriver>({
-      driver: PostgreSqlDriver,
-      clientUrl: getClientUrl(),
-      loggerFactory: () => createMinimalLogger(),
-      entities: entities.length ? entities : [],
-      discovery: { warnWhenNoEntities: false },
-      migrations: {
-        path: migrationsPath,
-        glob: '!(*.d).{ts,js}',
-        tableName,
-        dropTables: false,
-      },
-      schemaGenerator: {
-        disableForeignKeys: true,
-      },
-      pool: {
-        min: 1,
-        max: 3,
-        idleTimeoutMillis: 30000,
-        acquireTimeoutMillis: 60000,
-        destroyTimeoutMillis: 30000,
-      },
-    })
+      const orm = await MikroORM.init<PostgreSqlDriver>({
+        driver: PostgreSqlDriver,
+        clientUrl: getClientUrl(),
+        loggerFactory: () => createMinimalLogger(),
+        // MikroORM uses dynamic import for migrations/entities in ESM mode.
+        // Node on Windows requires absolute paths to be passed as file:// URLs.
+        dynamicImportProvider: createWindowsSafeDynamicImportProvider(),
+        entities: entities.length ? entities : [],
+        discovery: { warnWhenNoEntities: false },
+        migrations: {
+          path: migrationsPath,
+          glob: '!(*.d).{ts,js}',
+          tableName,
+          dropTables: false,
+        },
+        schemaGenerator: {
+          disableForeignKeys: true,
+        },
+        pool: {
+          min: 1,
+          max: 3,
+          idleTimeoutMillis: 30000,
+          acquireTimeoutMillis: 60000,
+          destroyTimeoutMillis: 30000,
+        },
+      } as any)
 
-    const migrator = orm.getMigrator() as Migrator
-    const pending = await migrator.getPendingMigrations()
-    if (!pending.length) {
-      results.push(formatResult(modId, 'no pending migrations', ''))
-    } else {
-      const renderProgress = createProgressRenderer(pending.length)
-      let applied = 0
-      if (!QUIET_MODE) {
-        process.stdout.write(`   ${PROGRESS_EMOJI} ${modId}: ${renderProgress(applied)}`)
+      const migrator = orm.getMigrator() as Migrator
+      contexts.push({ modId, orm, migrator })
+
+      const pending = (await migrator.getPendingMigrations()) as UmzugMigration[]
+      perModulePendingCount.set(modId, pending.length)
+
+      for (const m of pending) {
+        const match = /^Migration(\d{14})/.exec(m.name)
+        pendingAll.push({
+          ts: match?.[1] ?? '00000000000000',
+          modId,
+          name: m.name,
+          migrator,
+        })
       }
-      for (const migration of pending) {
-        const migrationName =
-          typeof migration === 'string'
-            ? migration
-            : (migration as any).name ?? (migration as any).fileName
-        await migrator.up(migrationName ? { migrations: [migrationName] } : undefined)
-        applied += 1
-        if (!QUIET_MODE) {
-          process.stdout.write(`\r   ${PROGRESS_EMOJI} ${modId}: ${renderProgress(applied)}`)
-        }
-      }
-      if (!QUIET_MODE) process.stdout.write('\n')
-      results.push(
-        formatResult(modId, `${pending.length} migration${pending.length === 1 ? '' : 's'} applied`, '')
-      )
     }
 
-    await orm.close(true)
-  }
+    // If nothing pending, preserve the prior "no pending" output.
+    if (!pendingAll.length) {
+      for (const ctx of contexts) {
+        results.push(formatResult(ctx.modId, 'no pending migrations', ''))
+      }
+      console.log(results.join('\n'))
+      return
+    }
 
-  console.log(results.join('\n'))
+    pendingAll.sort((a, b) =>
+      a.ts.localeCompare(b.ts) || a.modId.localeCompare(b.modId) || a.name.localeCompare(b.name)
+    )
+
+    const renderProgress = createProgressRenderer(pendingAll.length)
+    let applied = 0
+    if (!QUIET_MODE) {
+      process.stdout.write(`   ${PROGRESS_EMOJI} migrations: ${renderProgress(applied)}`)
+    }
+
+    for (const item of pendingAll) {
+      await item.migrator.up({ migrations: [item.name] })
+      applied += 1
+      if (!QUIET_MODE) {
+        process.stdout.write(`\r   ${PROGRESS_EMOJI} migrations: ${renderProgress(applied)}`)
+      }
+    }
+
+    if (!QUIET_MODE) process.stdout.write('\n')
+
+    // Emit per-module summary (stable order)
+    for (const ctx of contexts) {
+      const count = perModulePendingCount.get(ctx.modId) ?? 0
+      if (count === 0) {
+        results.push(formatResult(ctx.modId, 'no pending migrations', ''))
+      } else {
+        results.push(formatResult(ctx.modId, `${count} migration${count === 1 ? '' : 's'} applied`, ''))
+      }
+    }
+
+    console.log(results.join('\n'))
+  } finally {
+    for (const ctx of contexts) {
+      try {
+        await ctx.orm.close(true)
+      } catch {}
+    }
+  }
 }
 
 export async function dbGreenfield(resolver: PackageResolver, options: GreenfieldOptions): Promise<void> {
