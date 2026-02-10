@@ -1,0 +1,32 @@
+{
+  "records": {
+    "nav": {
+      "group": "Rejestr"
+    },
+    "incomingShipments": {
+      "page": {
+        "title": "Przesyłki wpływające"
+      },
+      "create": {
+        "title": "Utwórz przesyłkę wpływającą"
+      },
+      "details": {
+        "title": "Szczegóły przesyłki"
+      }
+    },
+    "jrwaClasses": {
+      "page": {
+        "title": "Klasy JRWA"
+      },
+      "create": {
+        "title": "Utwórz klasę JRWA"
+      },
+      "import": {
+        "title": "Importuj klasy JRWA"
+      },
+      "details": {
+        "title": "Szczegóły klasy JRWA"
+      }
+    }
+  }
+}
