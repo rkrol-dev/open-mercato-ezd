@@ -1,6 +1,6 @@
 # Raport weryfikacji spójności: analiza wykonawcza ↔ mapowanie na obiekty
 
-**Data:** 2026-01-26  
+**Data:** 2026-02-10  
 **Status:** W toku
 
 ## Cel weryfikacji
@@ -68,6 +68,13 @@ Weryfikacja obejmuje sprawdzenie spójności:
    **WYMAGANA DECYZJA**: Który model jest właściwy dla MVP?
    - Opcja A: Przesyłka → Dokumenty → Załączniki (zgodnie z analizą wykonawczą)
    - Opcja B: Przesyłka → Załączniki (obecna implementacja, uproszczony model)
+
+2. **Pola integracyjne dla systemów zewnętrznych**:
+   - **Dokumentacja analiza wykonawcza**: `external_rpw_number`, `external_document_ids` (nowe pola dla EZD RP/eSODOK)
+   - **Dokumentacja mapowanie**: `externalRpwNumber`, `externalDocumentIds`
+   - **Implementacja**: brak pól w encji `RecordsIncomingShipment`
+   
+   **Status**: planowane - wymagają rozszerzenia encji i synchronizacji w module `correspondence_sources`.
 
 ---
 
@@ -330,4 +337,3 @@ To jest standardowa konwencja w repozytorium i jest stosowana konsekwentnie.
 **Gotowość do implementacji**: 🟡 **Warunkowo gotowe**
 - Można rozpocząć implementację UI/frontend dla już istniejących encji
 - **WYMAGANE**: Rozstrzygnięcie modelu dokumentów przed implementacją obsługi załączników
-
